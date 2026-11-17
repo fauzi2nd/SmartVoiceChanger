@@ -322,11 +322,44 @@ fun ActivityScreen(
             )
         }
 
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(historyItems) { item ->
+        if (historyItems.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0x1A0A1226))
+                    .border(1.dp, Color(0x1A38BDF8), RoundedCornerShape(16.dp))
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FuturisticAudioDiscIcon(size = 36.dp, tint = SvcColors.TextMuted)
+                    Text(
+                        text = "NO CONVERSION ARCHIVE",
+                        color = SvcColors.TextMuted,
+                        fontFamily = SvcFonts.Orbitron,
+                        fontSize = 11.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "Processed voice outputs will be cataloged here.",
+                        color = SvcColors.TextMuted.copy(alpha = 0.7f),
+                        fontFamily = SvcFonts.Rajdhani,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(historyItems) { item ->
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -416,4 +449,5 @@ fun ActivityScreen(
             }
         }
     }
+}
 }
