@@ -138,14 +138,16 @@ fun AudioTuningScreen(
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0x2210B981))
                     .border(0.8.dp, SvcColors.GreenNeon, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
                     text = "READY",
                     color = SvcColors.GreenNeon,
                     fontFamily = SvcFonts.Orbitron,
                     fontSize = 9.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    softWrap = false,
+                    maxLines = 1
                 )
             }
         }
