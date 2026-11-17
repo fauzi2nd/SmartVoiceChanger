@@ -168,10 +168,11 @@ fun MainAppHost(
     fun processConversion(
         inputFile: File,
         targetName: String,
-        pitchSemitones: Float = 12.0f,
-        modelName: String = "Aoi Cyber Girl",
-        modelId: String = "aoi_cyber_girl",
-        instrumentalFile: File? = null
+        pitchSemitones: Float = 0.0f,
+        modelName: String = "Saisho Utane",
+        modelId: String = "saisho_utane",
+        instrumentalFile: File? = null,
+        shouldSeparateStems: Boolean = false
     ) {
         activeJobFileName = targetName
         activeJobModelName = modelName
@@ -190,7 +191,8 @@ fun MainAppHost(
             modelName = modelName,
             modelId = modelId,
             pitchSemitones = pitchSemitones,
-            instrumentalFile = instrumentalFile
+            instrumentalFile = instrumentalFile,
+            shouldSeparateStems = shouldSeparateStems
         )
     }
 
@@ -294,14 +296,15 @@ fun MainAppHost(
                     audioPipeline = audioPipeline,
                     stemSeparator = stemSeparator,
                     onBack = { activeSubScreen = "NONE" },
-                    onStartConversion = { sourceFile, targetModelName, pitch, modelId, instFile ->
+                    onStartConversion = { sourceFile, targetModelName, pitch, modelId, instFile, shouldSeparate ->
                         processConversion(
                             inputFile = sourceFile,
                             targetName = sourceFile.name,
                             pitchSemitones = pitch,
                             modelName = targetModelName,
                             modelId = modelId,
-                            instrumentalFile = instFile
+                            instrumentalFile = instFile,
+                            shouldSeparateStems = shouldSeparate
                         )
                     }
                 )

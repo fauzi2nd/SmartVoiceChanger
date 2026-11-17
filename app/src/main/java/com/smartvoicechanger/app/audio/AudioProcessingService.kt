@@ -59,6 +59,7 @@ class AudioProcessingService : Service() {
         private const val EXTRA_MODEL_ID = "extra_model_id"
         private const val EXTRA_PITCH = "extra_pitch"
         private const val EXTRA_INST_PATH = "extra_inst_path"
+        private const val EXTRA_SEPARATE_STEMS = "extra_separate_stems"
 
         private val _jobState = MutableStateFlow<AudioJobState>(AudioJobState.Idle)
         val jobState: StateFlow<AudioJobState> = _jobState.asStateFlow()
@@ -71,7 +72,8 @@ class AudioProcessingService : Service() {
             modelName: String,
             modelId: String,
             pitchSemitones: Float,
-            instrumentalFile: File?
+            instrumentalFile: File?,
+            shouldSeparateStems: Boolean = false
         ) {
             val intent = Intent(context, AudioProcessingService::class.java).apply {
                 action = ACTION_START_CONVERSION
@@ -81,6 +83,7 @@ class AudioProcessingService : Service() {
                 putExtra(EXTRA_MODEL_NAME, modelName)
                 putExtra(EXTRA_MODEL_ID, modelId)
                 putExtra(EXTRA_PITCH, pitchSemitones)
+                putExtra(EXTRA_SEPARATE_STEMS, shouldSeparateStems)
                 instrumentalFile?.let { putExtra(EXTRA_INST_PATH, it.absolutePath) }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -113,13 +116,14 @@ class AudioProcessingService : Service() {
                 val modelId = intent.getStringExtra(EXTRA_MODEL_ID) ?: "aoi_cyber_girl"
                 val pitch = intent.getFloatExtra(EXTRA_PITCH, 0.0f)
                 val instPath = intent.getStringExtra(EXTRA_INST_PATH)
+                val shouldSeparate = intent.getBooleanExtra(EXTRA_SEPARATE_STEMS, false)
 
                 if (inputPath != null && outputPath != null) {
                     val inputFile = File(inputPath)
                     val outputFile = File(outputPath)
                     val instFile = instPath?.let { File(it) }
 
-                    val notification = buildProgressNotification(targetName, 0f, "Starting conversion...")
+                    val notification = buildProgressNotification(targetName, 0f, "Preparing audio processing...")
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                         startForeground(
                             NOTIFICATION_ID,
@@ -129,7 +133,7 @@ class AudioProcessingService : Service() {
                     } else {
                         startForeground(NOTIFICATION_ID, notification)
                     }
-                    startProcessing(inputFile, outputFile, targetName, modelName, modelId, pitch, instFile)
+                    startProcessing(inputFile, outputFile, targetName, modelName, modelId, pitch, instFile, shouldSeparate)
                 }
             }
             ACTION_CANCEL -> {
@@ -146,7 +150,8 @@ class AudioProcessingService : Service() {
         modelName: String,
         modelId: String,
         pitchSemitones: Float,
-        instrumentalFile: File?
+        instrumentalFile: File?,
+        shouldSeparateStems: Boolean = false
     ) {
         activeJob?.cancel()
         val jobId = System.currentTimeMillis().toString()
@@ -156,29 +161,89 @@ class AudioProcessingService : Service() {
             val pipeline = VoiceConversionPipeline(applicationContext)
 
             try {
+                var actualInputForConversion = inputFile
+                var actualInstForRemix = instrumentalFile
+
+                // STAGE 1: Automatic Stem Separation if requested (1-Tap Unified Workflow)
+                if (shouldSeparateStems && (actualInstForRemix == null || !actualInstForRemix.exists())) {
+                    val stemCacheDir = File(applicationContext.cacheDir, "stem_cache")
+                    if (!stemCacheDir.exists()) stemCacheDir.mkdirs()
+
+                    val fileHash = inputFile.nameWithoutExtension.hashCode()
+                    val cachedVocal = File(stemCacheDir, "vocal_${fileHash}.wav")
+                    val cachedInst = File(stemCacheDir, "inst_${fileHash}.wav")
+
+                    if (cachedVocal.exists() && cachedInst.exists() && cachedVocal.length() > 0) {
+                        actualInputForConversion = cachedVocal
+                        actualInstForRemix = cachedInst
+                    } else {
+                        _jobState.value = AudioJobState.Running(
+                            jobId = jobId,
+                            stage = "⚡ Isolating vocals & instruments (UVR-MDX)...",
+                            progress = 0.05f,
+                            fileName = targetName,
+                            modelName = modelName
+                        )
+                        updateNotification(targetName, 0.05f)
+
+                        val stemSeparator = StemSeparator(applicationContext)
+                        val sepResult = stemSeparator.separate(
+                            inputFile = inputFile,
+                            outputVocalFile = cachedVocal,
+                            outputInstrumentalFile = cachedInst
+                        ) { p ->
+                            // Scale separation progress to 0% - 40% of overall job
+                            val overallProgress = 0.05f + (p * 0.35f)
+                            _jobState.value = AudioJobState.Running(
+                                jobId = jobId,
+                                stage = "⚡ Isolating vocals & instruments (${(p * 100).toInt()}%)...",
+                                progress = overallProgress,
+                                fileName = targetName,
+                                modelName = modelName
+                            )
+                            updateNotification(targetName, overallProgress)
+                        }
+
+                        actualInputForConversion = sepResult.vocalFile
+                        actualInstForRemix = sepResult.instrumentalFile
+                    }
+                }
+
+                // STAGE 2: Neural Voice Conversion & Pitch Shifting
+                val conversionBaseProgress = if (shouldSeparateStems) 0.40f else 0.05f
+                val conversionProgressScale = if (shouldSeparateStems) 0.50f else 0.85f
+
                 _jobState.value = AudioJobState.Running(
                     jobId = jobId,
-                    stage = "Converting vocals & pitch...",
-                    progress = 0.05f,
+                    stage = "🎙️ Converting vocals to $modelName...",
+                    progress = conversionBaseProgress,
                     fileName = targetName,
                     modelName = modelName
                 )
+                updateNotification(targetName, conversionBaseProgress)
 
                 val result = pipeline.convertAudio(
-                    inputFile = inputFile,
+                    inputFile = actualInputForConversion,
                     outputFile = outputFile,
                     pitchSemitones = pitchSemitones,
                     modelId = modelId,
-                    instrumentalFile = instrumentalFile
+                    instrumentalFile = actualInstForRemix
                 ) { p ->
+                    val overallProgress = conversionBaseProgress + (p * conversionProgressScale)
+                    val stageLabel = if (p >= 0.85f && actualInstForRemix != null) {
+                        "🎛️ Remixing vocals with original instrumental..."
+                    } else {
+                        "🎙️ Neural voice synthesis (${(p * 100).toInt()}%)..."
+                    }
+
                     _jobState.value = AudioJobState.Running(
                         jobId = jobId,
-                        stage = if (p >= 0.85f && instrumentalFile != null) "Remixing with instrumental..." else "Neural inference...",
-                        progress = p,
+                        stage = stageLabel,
+                        progress = overallProgress,
                         fileName = targetName,
                         modelName = modelName
                     )
-                    updateNotification(targetName, p)
+                    updateNotification(targetName, overallProgress)
                 }
 
                 val elapsedMs = (System.currentTimeMillis() - startTime).toDouble()

@@ -43,7 +43,7 @@ fun AudioTuningScreen(
     audioPipeline: VoiceConversionPipeline,
     stemSeparator: com.smartvoicechanger.app.audio.StemSeparator,
     onBack: () -> Unit,
-    onStartConversion: (File, String, Float, String, File?) -> Unit
+    onStartConversion: (File, String, Float, String, File?, Boolean) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -601,63 +601,63 @@ fun AudioTuningScreen(
                                 }
                             }
                         } else {
-                            // Sub-state B: Stems not yet separated -> Clean explainer + Separation Action Card
+                            // Sub-state B: Stems not yet separated -> Clean explainer showing 1-Tap Automatic Pipeline
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
                                         Brush.horizontalGradient(
-                                            listOf(Color(0x30A855F7), Color(0x2000E5FF))
+                                            listOf(Color(0x28A855F7), Color(0x1800E5FF))
                                         )
                                     )
-                                    .border(1.dp, SvcColors.PurpleNeon.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                                    .padding(12.dp)
+                                    .border(1.dp, SvcColors.PurpleNeon.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                    .padding(14.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Vocals",
-                                            color = Color.White,
-                                            fontFamily = SvcFonts.Orbitron,
-                                            fontSize = 11.sp,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(SvcColors.PurpleNeon.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AutoFixHigh,
+                                            contentDescription = null,
+                                            tint = SvcColors.PurpleNeon,
+                                            modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.height(3.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "Vocals",
+                                                color = Color.White,
+                                                fontFamily = SvcFonts.Orbitron,
+                                                fontSize = 11.sp,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "• 1-Tap Auto Pipeline",
+                                                color = SvcColors.CyanNeon,
+                                                fontFamily = SvcFonts.Rajdhani,
+                                                fontSize = 10.sp,
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             text = "Separate vocals from instruments, convert the vocals, then mix them back with the original instrumental.",
                                             color = SvcColors.TextSecondary,
                                             fontFamily = SvcFonts.Rajdhani,
                                             fontSize = 11.sp,
                                             lineHeight = 15.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    val splitBtnBrush = if (isSeparating) {
-                                        Brush.linearGradient(listOf(Color(0x3338BDF8), Color(0x3338BDF8)))
-                                    } else {
-                                        Brush.horizontalGradient(listOf(SvcColors.PurpleNeon, SvcColors.CyanNeon))
-                                    }
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(splitBtnBrush)
-                                            .clickable {
-                                                if (!isSeparating) triggerStemSeparation()
-                                            }
-                                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = if (isSeparating) "SEPARATING..." else if (!isModelInstalled) "GET MODEL" else "⚡ SEPARATE",
-                                            color = Color.Black,
-                                            fontFamily = SvcFonts.Orbitron,
-                                            fontSize = 9.5.sp,
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                         )
                                     }
                                 }
@@ -785,34 +785,36 @@ fun AudioTuningScreen(
         }
 
         // Bottom CTA: Dynamic State-Aware Action
-        val isSeparateNeeded = selectedStemMode == "VOCALS" && vocalStemFile == null
-
-        val ctaText = when {
-            isSeparating -> "SEPARATING STEMS IN PROGRESS..."
-            isSeparateNeeded -> if (!isModelInstalled) "GET STEM SEPARATOR MODEL" else "SEPARATE VOCAL & INSTRUMENTAL"
-            selectedStemMode == "VOCALS" -> "CONVERT VOCALS & KEEP INSTRUMENTAL"
-            else -> "CONVERT AUDIO"
-        }
-
-        val ctaGradient = if (isSeparateNeeded) {
-            listOf(SvcColors.PurpleNeon, SvcColors.CyanNeon)
+        val ctaText = if (selectedStemMode == "VOCALS") {
+            "CONVERT VOCALS & KEEP INSTRUMENTAL"
         } else {
-            listOf(SvcColors.CyanNeon, SvcColors.PurpleNeon, SvcColors.MagentaNeon)
+            "CONVERT AUDIO"
         }
+
+        val ctaGradient = listOf(SvcColors.CyanNeon, SvcColors.PurpleNeon, SvcColors.MagentaNeon)
 
         Button(
             onClick = {
                 audioPipeline.stopPlayback()
-                if (isSeparating) return@Button
 
-                if (isSeparateNeeded) {
-                    triggerStemSeparation()
-                } else {
-                    val instFileForMixing = if (selectedStemMode == "VOCALS") instStemFile else null
-                    onStartConversion(activeAudioFile, selectedPreset.name, pitchSemitones, selectedPreset.id, instFileForMixing)
+                // Check stem separator model if Vocals mode is selected
+                if (selectedStemMode == "VOCALS" && vocalStemFile == null && !isModelInstalled) {
+                    showDownloadDialog = true
+                    return@Button
                 }
+
+                val shouldSeparate = (selectedStemMode == "VOCALS" && vocalStemFile == null)
+                val instFileForMixing = if (selectedStemMode == "VOCALS") instStemFile else null
+
+                onStartConversion(
+                    activeAudioFile,
+                    selectedPreset.name,
+                    pitchSemitones,
+                    selectedPreset.id,
+                    instFileForMixing,
+                    shouldSeparate
+                )
             },
-            enabled = !isSeparating,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
@@ -824,16 +826,7 @@ fun AudioTuningScreen(
             )
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isSeparateNeeded) {
-                    Icon(
-                        imageVector = Icons.Default.CallSplit,
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    FuturisticActivityIcon(selected = true, size = 20.dp)
-                }
+                FuturisticActivityIcon(selected = true, size = 20.dp)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = ctaText,
