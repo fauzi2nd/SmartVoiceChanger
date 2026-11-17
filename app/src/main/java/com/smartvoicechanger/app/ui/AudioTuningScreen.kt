@@ -5,7 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -79,13 +81,60 @@ fun AudioTuningScreen(
         mutableStateOf(com.smartvoicechanger.app.audio.ModelDownloadService.isModelReady(context))
     }
 
+    val scrollState = rememberScrollState()
+
+    fun triggerStemSeparation() {
+        if (!isModelInstalled) {
+            showDownloadDialog = true
+            return
+        }
+        if (isSeparating) return
+
+        isSeparating = true
+        separationProgress = 0.05f
+        val outVoc = File(context.cacheDir, "stem_vocals_${System.currentTimeMillis()}.wav")
+        val outInst = File(context.cacheDir, "stem_inst_${System.currentTimeMillis()}.wav")
+
+        separationJob = coroutineScope.launch {
+            try {
+                val res = stemSeparator.separate(
+                    inputFile = inputFile,
+                    outputVocalFile = outVoc,
+                    outputInstrumentalFile = outInst
+                ) { p ->
+                    separationProgress = p
+                }
+                vocalStemFile = res.vocalFile
+                instStemFile = res.instrumentalFile
+                selectedStemMode = "VOCAL"
+                activeAudioFile = res.vocalFile
+                android.widget.Toast.makeText(
+                    context,
+                    "Vocals & Instrumental separated successfully!",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                android.widget.Toast.makeText(
+                    context,
+                    "Separation failed: ${e.localizedMessage ?: "Unknown error"}",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            } finally {
+                isSeparating = false
+                separationProgress = 0f
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF040614))
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .verticalScroll(scrollState),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Top Header
         Row(
@@ -119,15 +168,15 @@ fun AudioTuningScreen(
                         text = "STUDIO PRESET TUNING",
                         color = SvcColors.TextPrimary,
                         fontFamily = SvcFonts.Orbitron,
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         letterSpacing = 0.8.sp
                     )
                     Text(
-                        text = "RVC Neural Model & Pitch Shift",
+                        text = "Neural Vocal Conversion & Remixer",
                         color = SvcColors.CyanSoft,
                         fontFamily = SvcFonts.Rajdhani,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
                     )
                 }
@@ -135,16 +184,18 @@ fun AudioTuningScreen(
 
             Box(
                 modifier = Modifier
+                    .wrapContentWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0x2210B981))
                     .border(0.8.dp, SvcColors.GreenNeon, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "READY",
                     color = SvcColors.GreenNeon,
                     fontFamily = SvcFonts.Orbitron,
-                    fontSize = 9.sp,
+                    fontSize = 9.5.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     softWrap = false,
                     maxLines = 1
@@ -186,26 +237,29 @@ fun AudioTuningScreen(
                             FuturisticAudioDiscIcon(size = 24.dp, tint = SvcColors.CyanNeon)
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        Column(modifier = Modifier.padding(end = 8.dp)) {
                             Text(
                                 text = activeAudioFile.name,
                                 color = Color.White,
                                 fontFamily = SvcFonts.Orbitron,
-                                fontSize = 12.sp,
+                                fontSize = 11.5.sp,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = when (selectedStemMode) {
                                     "VOCAL" -> "44.1 kHz PCM • Isolated Vocals Stem"
                                     "INSTRUMENTAL" -> "44.1 kHz PCM • Isolated Instrumental Stem"
-                                    else -> "44.1 kHz PCM • Full Audio Mix"
+                                    else -> "44.1 kHz PCM • Full Song Mix"
                                 },
                                 color = if (selectedStemMode == "VOCAL") SvcColors.PurpleNeon else if (selectedStemMode == "INSTRUMENTAL") SvcColors.GreenNeon else SvcColors.CyanSoft,
                                 fontFamily = SvcFonts.Rajdhani,
-                                fontSize = 11.5.sp,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                fontSize = 11.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -406,40 +460,8 @@ fun AudioTuningScreen(
                                     isPlayingSource = false
                                     selectedStemMode = "VOCAL"
                                     activeAudioFile = vocalStemFile!!
-                                } else if (!isModelInstalled) {
-                                    showDownloadDialog = true
-                                } else if (!isSeparating) {
-                                    // Start separation
-                                    isSeparating = true
-                                    separationProgress = 0.05f
-                                    val outVoc = File(context.cacheDir, "stem_vocals_${System.currentTimeMillis()}.wav")
-                                    val outInst = File(context.cacheDir, "stem_inst_${System.currentTimeMillis()}.wav")
-
-                                    separationJob = coroutineScope.launch {
-                                        try {
-                                            val res = stemSeparator.separate(
-                                                inputFile = inputFile,
-                                                outputVocalFile = outVoc,
-                                                outputInstrumentalFile = outInst
-                                            ) { p ->
-                                                separationProgress = p
-                                            }
-                                            vocalStemFile = res.vocalFile
-                                            instStemFile = res.instrumentalFile
-                                            selectedStemMode = "VOCAL"
-                                            activeAudioFile = res.vocalFile
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                "Separation failed: ${e.localizedMessage}",
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
-                                        } finally {
-                                            isSeparating = false
-                                            separationProgress = 0f
-                                        }
-                                    }
+                                } else {
+                                    triggerStemSeparation()
                                 }
                             }
                             .padding(vertical = 8.dp, horizontal = 8.dp)
@@ -489,40 +511,8 @@ fun AudioTuningScreen(
                                     isPlayingSource = false
                                     selectedStemMode = "INSTRUMENTAL"
                                     activeAudioFile = instStemFile!!
-                                } else if (!isModelInstalled) {
-                                    showDownloadDialog = true
-                                } else if (!isSeparating) {
-                                    // Start separation
-                                    isSeparating = true
-                                    separationProgress = 0.05f
-                                    val outVoc = File(context.cacheDir, "stem_vocals_${System.currentTimeMillis()}.wav")
-                                    val outInst = File(context.cacheDir, "stem_inst_${System.currentTimeMillis()}.wav")
-
-                                    separationJob = coroutineScope.launch {
-                                        try {
-                                            val res = stemSeparator.separate(
-                                                inputFile = inputFile,
-                                                outputVocalFile = outVoc,
-                                                outputInstrumentalFile = outInst
-                                            ) { p ->
-                                                separationProgress = p
-                                            }
-                                            vocalStemFile = res.vocalFile
-                                            instStemFile = res.instrumentalFile
-                                            selectedStemMode = "INSTRUMENTAL"
-                                            activeAudioFile = res.instrumentalFile
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                "Separation failed: ${e.localizedMessage}",
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
-                                        } finally {
-                                            isSeparating = false
-                                            separationProgress = 0f
-                                        }
-                                    }
+                                } else {
+                                    triggerStemSeparation()
                                 }
                             }
                             .padding(vertical = 8.dp, horizontal = 8.dp)
@@ -553,6 +543,46 @@ fun AudioTuningScreen(
                             )
                         }
                     }
+                }
+
+                // Clarification Info Banner based on chosen mode
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            when (selectedStemMode) {
+                                "VOCAL" -> Color(0x22A855F7)
+                                "INSTRUMENTAL" -> Color(0x2210B981)
+                                else -> Color(0x2238BDF8)
+                            }
+                        )
+                        .border(
+                            width = 0.8.dp,
+                            color = when (selectedStemMode) {
+                                "VOCAL" -> SvcColors.PurpleNeon.copy(alpha = 0.5f)
+                                "INSTRUMENTAL" -> SvcColors.GreenNeon.copy(alpha = 0.5f)
+                                else -> SvcColors.CyanNeon.copy(alpha = 0.4f)
+                            },
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = when (selectedStemMode) {
+                            "VOCAL" -> if (vocalStemFile != null) {
+                                "✓ Vocal stem isolated. Final converted vocals will automatically be remixed with original instrumental."
+                            } else {
+                                "⚠️ Separate stems first to isolate vocals and preserve the original song backing track for remixing."
+                            }
+                            "INSTRUMENTAL" -> "Processing isolated instrumental stem directly without vocal conversion."
+                            else -> "Notice: Full Mix pitch shifts the entire song together (including backing music). For vocal conversion & remixing, separate Vocals first."
+                        },
+                        color = Color.White.copy(alpha = 0.9f),
+                        fontFamily = SvcFonts.Rajdhani,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
                 }
             }
 
@@ -611,9 +641,9 @@ fun AudioTuningScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(
-                            "Male -> Female (+12)" to 12.0f,
+                            "M -> F (+12)" to 12.0f,
                             "Natural (0)" to 0.0f,
-                            "Female -> Male (-12)" to -12.0f
+                            "F -> M (-12)" to -12.0f
                         ).forEach { (label, semitones) ->
                             val isQuickActive = pitchSemitones == semitones
                             Box(
@@ -634,7 +664,7 @@ fun AudioTuningScreen(
                                     text = label,
                                     color = if (isQuickActive) Color.White else SvcColors.TextMuted,
                                     fontFamily = SvcFonts.Rajdhani,
-                                    fontSize = 11.sp,
+                                    fontSize = 11.5.sp,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                     maxLines = 1
                                 )
@@ -645,35 +675,67 @@ fun AudioTuningScreen(
             }
         }
 
-        // Bottom CTA: Start Neural Conversion
+        // Bottom CTA: Dynamic State-Aware Action
+        val isSeparateNeeded = (selectedStemMode == "VOCAL" && vocalStemFile == null) ||
+                                (selectedStemMode == "INSTRUMENTAL" && instStemFile == null)
+
+        val ctaText = when {
+            isSeparating -> "SEPARATING STEMS IN PROGRESS..."
+            isSeparateNeeded -> if (!isModelInstalled) "GET STEM SEPARATOR MODEL" else "SEPARATE VOCAL & INSTRUMENTAL"
+            selectedStemMode == "VOCAL" && instStemFile != null -> "CONVERT VOCALS & REMIX WITH MUSIC"
+            selectedStemMode == "VOCAL" -> "CONVERT VOCALS STEM"
+            selectedStemMode == "INSTRUMENTAL" -> "PROCESS INSTRUMENTAL STEM"
+            else -> "CONVERT FULL SONG MIX"
+        }
+
+        val ctaGradient = if (isSeparateNeeded) {
+            listOf(SvcColors.PurpleNeon, SvcColors.CyanNeon)
+        } else {
+            listOf(SvcColors.CyanNeon, SvcColors.PurpleNeon, SvcColors.MagentaNeon)
+        }
+
         Button(
             onClick = {
                 audioPipeline.stopPlayback()
-                // If user selected Vocals and instrumental stem exists, pass instStemFile so the pipeline mixes them back!
-                val instFileForMixing = if (selectedStemMode == "VOCAL") instStemFile else null
-                onStartConversion(activeAudioFile, selectedPreset.name, pitchSemitones, selectedPreset.id, instFileForMixing)
+                if (isSeparating) return@Button
+
+                if (isSeparateNeeded) {
+                    triggerStemSeparation()
+                } else {
+                    val instFileForMixing = if (selectedStemMode == "VOCAL") instStemFile else null
+                    onStartConversion(activeAudioFile, selectedPreset.name, pitchSemitones, selectedPreset.id, instFileForMixing)
+                }
             },
+            enabled = !isSeparating,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(SvcColors.CyanNeon, SvcColors.PurpleNeon, SvcColors.MagentaNeon)
-                    )
-                ),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                .background(Brush.horizontalGradient(ctaGradient)),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                disabledContainerColor = Color(0x3338BDF8)
+            )
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                FuturisticActivityIcon(selected = true, size = 20.dp)
+                if (isSeparateNeeded) {
+                    Icon(
+                        imageVector = Icons.Default.CallSplit,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    FuturisticActivityIcon(selected = true, size = 20.dp)
+                }
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "START NEURAL CONVERSION",
+                    text = ctaText,
                     color = Color.Black,
                     fontFamily = SvcFonts.Orbitron,
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    letterSpacing = 1.sp
+                    letterSpacing = 0.8.sp
                 )
             }
         }

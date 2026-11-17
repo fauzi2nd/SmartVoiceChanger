@@ -91,62 +91,53 @@ class VoiceConversionPipeline(private val context: Context) {
         modelId: String,
         onProgress: (Float) -> Unit
     ): FloatArray = withContext(Dispatchers.Default) {
-        try {
-            // Load model from assets if needed
-            val modelFile = getOrExtractModel(modelId)
-            if (modelFile == null || !modelFile.exists()) {
-                // If model not found, return DSP processed samples safely
-                return@withContext samples
+        // Load model from assets if needed
+        val modelFile = getOrExtractModel(modelId)
+            ?: throw IllegalStateException("Target neural model '$modelId' could not be loaded from assets.")
+
+        val env = ortEnv ?: OrtEnvironment.getEnvironment().also { ortEnv = it }
+        val session = if (cachedModelId == modelId && cachedSession != null) {
+            cachedSession!!
+        } else {
+            cachedSession?.close()
+            val opts = OrtSession.SessionOptions().apply {
+                setIntraOpNumThreads(4)
+                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             }
-
-            val env = ortEnv ?: OrtEnvironment.getEnvironment().also { ortEnv = it }
-            val session = if (cachedModelId == modelId && cachedSession != null) {
-                cachedSession!!
-            } else {
-                cachedSession?.close()
-                val opts = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(4)
-                    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                }
-                val newSession = env.createSession(modelFile.absolutePath, opts)
-                cachedSession = newSession
-                cachedModelId = modelId
-                newSession
-            }
-
-            // Run neural filter/vocoder inference in dynamic chunks to bound memory and provide smooth progress
-            val chunkSize = 44100 // 1-second chunks
-            val totalSamples = samples.size
-            val outputSamples = FloatArray(totalSamples)
-            var offset = 0
-
-            val inputName = session.inputNames.iterator().next()
-
-            while (offset < totalSamples) {
-                val currentChunkSize = minOf(chunkSize, totalSamples - offset)
-                val chunkBuffer = FloatBuffer.wrap(samples, offset, currentChunkSize)
-                val inputShape = longArrayOf(1, 1, currentChunkSize.toLong())
-
-                val tensor = OnnxTensor.createTensor(env, chunkBuffer, inputShape)
-                val results = session.run(mapOf(inputName to tensor))
-
-                val outTensor = results.get(0) as OnnxTensor
-                val outBuffer = outTensor.floatBuffer
-                outBuffer.get(outputSamples, offset, currentChunkSize)
-
-                results.close()
-                tensor.close()
-
-                offset += currentChunkSize
-                onProgress(offset.toFloat() / totalSamples.toFloat())
-            }
-
-            outputSamples
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // Graceful fallback to DSP samples if runtime inference throws
-            samples
+            val newSession = env.createSession(modelFile.absolutePath, opts)
+            cachedSession = newSession
+            cachedModelId = modelId
+            newSession
         }
+
+        // Run neural model inference in dynamic chunks to bound memory and provide smooth progress
+        val chunkSize = 44100 // 1-second chunks
+        val totalSamples = samples.size
+        val outputSamples = FloatArray(totalSamples)
+        var offset = 0
+
+        val inputName = session.inputNames.iterator().next()
+
+        while (offset < totalSamples) {
+            val currentChunkSize = minOf(chunkSize, totalSamples - offset)
+            val chunkBuffer = FloatBuffer.wrap(samples, offset, currentChunkSize)
+            val inputShape = longArrayOf(1, 1, currentChunkSize.toLong())
+
+            val tensor = OnnxTensor.createTensor(env, chunkBuffer, inputShape)
+            val results = session.run(mapOf(inputName to tensor))
+
+            val outTensor = results.get(0) as OnnxTensor
+            val outBuffer = outTensor.floatBuffer
+            outBuffer.get(outputSamples, offset, currentChunkSize)
+
+            results.close()
+            tensor.close()
+
+            offset += currentChunkSize
+            onProgress(offset.toFloat() / totalSamples.toFloat())
+        }
+
+        outputSamples
     }
 
     private fun getOrExtractModel(modelId: String): File? {
