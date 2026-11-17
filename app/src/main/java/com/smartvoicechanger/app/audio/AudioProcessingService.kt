@@ -124,7 +124,7 @@ class AudioProcessingService : Service() {
                         startForeground(
                             NOTIFICATION_ID,
                             notification,
-                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
+                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                         )
                     } else {
                         startForeground(NOTIFICATION_ID, notification)
