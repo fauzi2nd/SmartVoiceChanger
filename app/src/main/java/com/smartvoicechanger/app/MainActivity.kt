@@ -34,6 +34,8 @@ import com.smartvoicechanger.app.inference.HardwareInspector
 import com.smartvoicechanger.app.model.VoiceModel
 import com.smartvoicechanger.app.ui.*
 import com.smartvoicechanger.app.ui.theme.SvcColors
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.smartvoicechanger.app.storage.HistoryStorageHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -64,7 +66,7 @@ class MainActivity : ComponentActivity() {
                     onSurface = SvcColors.TextPrimary
                 )
             ) {
-                var showSplash by remember { mutableStateOf(true) }
+                var showSplash by rememberSaveable { mutableStateOf(true) }
 
                 if (showSplash) {
                     SplashScreen(
@@ -99,28 +101,33 @@ fun MainAppHost(
 ) {
     // 4 Distinct Navigation Tabs in exact requested order:
     // 0: Home, 1: Models, 2: Activity, 3: Hardware
-    var currentTab by remember { mutableStateOf(0) }
+    var currentTab by rememberSaveable { mutableIntStateOf(0) }
     // Sub-screens for studio workflow: "NONE", "RECORD_BOOTH", "LINK_INGEST", "AUDIO_TUNING"
-    var activeSubScreen by remember { mutableStateOf("NONE") }
-    var tuningFile by remember { mutableStateOf<File?>(null) }
+    var activeSubScreen by rememberSaveable { mutableStateOf("NONE") }
+    var tuningFilePath by rememberSaveable { mutableStateOf<String?>(null) }
+    val tuningFile = tuningFilePath?.let { File(it) }
     val capabilities = remember { inspector.inspect() }
 
     var selectedAudioFile by remember { mutableStateOf<File?>(null) }
     var selectedVoiceModel by remember { mutableStateOf<VoiceModel?>(null) }
     var isConverting by remember { mutableStateOf(false) }
-    var conversionProgress by remember { mutableStateOf(0f) }
+    var conversionProgress by remember { mutableFloatStateOf(0f) }
 
     // Context for ContentResolver
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Real audio recorder helper and reactive history items (starts empty, populated only by real runs)
+    // Real audio recorder helper and persistent history items
     val recorderHelper = remember { com.smartvoicechanger.app.audio.AudioRecorderHelper() }
     val stemSeparator = remember { com.smartvoicechanger.app.audio.StemSeparator(context) }
     var isRecording by remember { mutableStateOf(false) }
     var recordingDurationSeconds by remember { mutableIntStateOf(0) }
     var lastMeasuredLatencyMs by remember { mutableStateOf<Double?>(null) }
+
+    // Load persistent history from local storage on launch
     val historyItems = remember {
-        mutableStateListOf<com.smartvoicechanger.app.ui.ConversionHistoryItem>()
+        mutableStateListOf<com.smartvoicechanger.app.ui.ConversionHistoryItem>().apply {
+            addAll(HistoryStorageHelper.loadHistory(context))
+        }
     }
 
     val coroutineScope = rememberCoroutineScope()
@@ -174,6 +181,7 @@ fun MainAppHost(
                     audioFile = outputFile
                 )
                 historyItems.add(0, newHistory)
+                HistoryStorageHelper.saveHistory(context, historyItems)
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -218,7 +226,7 @@ fun MainAppHost(
                     )
 
                     if (success && dest.exists() && com.smartvoicechanger.app.audio.AudioDecoderHelper.isValidWav(dest)) {
-                        tuningFile = dest
+                        tuningFilePath = dest.absolutePath
                         activeSubScreen = "AUDIO_TUNING"
                     } else {
                         // Decode failed or invalid format: cleanly delete any partial artifact and report via Toast
@@ -257,7 +265,7 @@ fun MainAppHost(
                 cacheDir = cacheDir,
                 onBack = { activeSubScreen = "NONE" },
                 onProceedToTuning = { file ->
-                    tuningFile = file
+                    tuningFilePath = file.absolutePath
                     activeSubScreen = "AUDIO_TUNING"
                 }
             )
@@ -265,7 +273,7 @@ fun MainAppHost(
                 cacheDir = cacheDir,
                 onBack = { activeSubScreen = "NONE" },
                 onProceedToTuning = { file ->
-                    tuningFile = file
+                    tuningFilePath = file.absolutePath
                     activeSubScreen = "AUDIO_TUNING"
                 }
             )
