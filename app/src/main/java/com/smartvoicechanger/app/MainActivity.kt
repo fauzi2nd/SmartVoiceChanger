@@ -28,6 +28,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smartvoicechanger.app.audio.AudioJobState
+import com.smartvoicechanger.app.audio.AudioProcessingService
 import com.smartvoicechanger.app.audio.VoiceConversionPipeline
 import com.smartvoicechanger.app.inference.AndroidHardwareInspector
 import com.smartvoicechanger.app.inference.HardwareInspector
@@ -48,6 +50,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Protect against Android standard launcher relaunch duplication bug
+        if (!isTaskRoot && intent.hasCategory(android.content.Intent.CATEGORY_LAUNCHER) && intent.action == android.content.Intent.ACTION_MAIN) {
+            finish()
+            return
+        }
+
         diagnosticEngine = DiagnosticEngine(this)
         audioPipeline = VoiceConversionPipeline(this)
         hardwareInspector = AndroidHardwareInspector(this)
@@ -108,10 +117,19 @@ fun MainAppHost(
     val tuningFile = tuningFilePath?.let { File(it) }
     val capabilities = remember { inspector.inspect() }
 
-    var selectedAudioFile by remember { mutableStateOf<File?>(null) }
+    // Listen to background AudioProcessingService state (Single source of truth)
+    val serviceJobState by AudioProcessingService.jobState.collectAsState()
+
+    var activeJobFileName by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeJobModelName by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val isConverting = serviceJobState is AudioJobState.Running
+    val conversionProgress = when (val s = serviceJobState) {
+        is AudioJobState.Running -> s.progress
+        else -> 0f
+    }
+
     var selectedVoiceModel by remember { mutableStateOf<VoiceModel?>(null) }
-    var isConverting by remember { mutableStateOf(false) }
-    var conversionProgress by remember { mutableFloatStateOf(0f) }
 
     // Context for ContentResolver
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -132,7 +150,7 @@ fun MainAppHost(
 
     val coroutineScope = rememberCoroutineScope()
 
-    // Function to trigger audio conversion pipeline
+    // Function to trigger audio conversion via background Foreground Service
     fun processConversion(
         inputFile: File,
         targetName: String,
@@ -141,53 +159,32 @@ fun MainAppHost(
         modelId: String = "aoi_cyber_girl",
         instrumentalFile: File? = null
     ) {
-        selectedAudioFile = inputFile
+        activeJobFileName = targetName
+        activeJobModelName = modelName
         activeSubScreen = "NONE"
         currentTab = 2 // Switch directly to Activity tab
-        isConverting = true
-        conversionProgress = 0.05f
 
         val outputDir = File(cacheDir, "converted_audio")
         if (!outputDir.exists()) outputDir.mkdirs()
         val outputFile = File(outputDir, "output_${System.currentTimeMillis()}.wav")
 
-        coroutineScope.launch {
-            val startTime = System.currentTimeMillis()
-            try {
-                val result = audioPipeline.convertAudio(
-                    inputFile = inputFile,
-                    outputFile = outputFile,
-                    pitchSemitones = pitchSemitones,
-                    modelId = modelId,
-                    instrumentalFile = instrumentalFile
-                ) { p ->
-                    conversionProgress = p
-                }
+        AudioProcessingService.startConversion(
+            context = context,
+            inputFile = inputFile,
+            outputFile = outputFile,
+            targetName = targetName,
+            modelName = modelName,
+            modelId = modelId,
+            pitchSemitones = pitchSemitones,
+            instrumentalFile = instrumentalFile
+        )
+    }
 
-                val elapsedMs = (System.currentTimeMillis() - startTime).toDouble()
-                lastMeasuredLatencyMs = elapsedMs
-
-                // Add to history list with real measured execution latency
-                val audioDurationSec = (result.samples.size / result.sampleRate).coerceAtLeast(1)
-                val durationStr = String.format("%02d:%02d", audioDurationSec / 60, audioDurationSec % 60)
-
-                val newHistory = com.smartvoicechanger.app.ui.ConversionHistoryItem(
-                    id = System.currentTimeMillis().toString(),
-                    fileName = targetName,
-                    modelName = modelName,
-                    duration = durationStr,
-                    timestamp = "Just now",
-                    latencyMs = elapsedMs,
-                    audioFile = outputFile
-                )
-                historyItems.add(0, newHistory)
-                HistoryStorageHelper.saveHistory(context, historyItems)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                isConverting = false
-                conversionProgress = 1.0f
-            }
+    // Refresh history whenever service completes a conversion
+    LaunchedEffect(serviceJobState) {
+        if (serviceJobState is AudioJobState.Completed) {
+            historyItems.clear()
+            historyItems.addAll(HistoryStorageHelper.loadHistory(context))
         }
     }
 
@@ -488,8 +485,14 @@ fun MainAppHost(
                     pipeline = audioPipeline,
                     isConverting = isConverting,
                     progress = conversionProgress,
-                    currentFileName = selectedAudioFile?.name,
-                    currentModelName = selectedVoiceModel?.name,
+                    currentFileName = when (val s = serviceJobState) {
+                        is AudioJobState.Running -> s.fileName
+                        else -> activeJobFileName
+                    },
+                    currentModelName = when (val s = serviceJobState) {
+                        is AudioJobState.Running -> s.modelName
+                        else -> activeJobModelName
+                    },
                     historyItems = historyItems,
                     isRecording = isRecording,
                     recordingDurationSeconds = recordingDurationSeconds,

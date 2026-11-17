@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,17 +56,26 @@ fun AudioTuningScreen(
         )
     }
 
-    var selectedPreset by remember { mutableStateOf(presets[0]) }
-    var pitchSemitones by remember { mutableFloatStateOf(12.0f) }
+    var selectedPresetId by rememberSaveable { mutableStateOf(presets[0].id) }
+    val selectedPreset = presets.find { it.id == selectedPresetId } ?: presets[0]
+    var pitchSemitones by rememberSaveable { mutableFloatStateOf(12.0f) }
     var isPlayingSource by remember { mutableStateOf(false) }
 
     // Audio Stem Choice: "MIX", "VOCAL", "INSTRUMENTAL"
-    var selectedStemMode by remember { mutableStateOf("MIX") }
-    var activeAudioFile by remember { mutableStateOf(inputFile) }
+    var selectedStemMode by rememberSaveable { mutableStateOf("MIX") }
 
-    // Separated stem files
-    var vocalStemFile by remember { mutableStateOf<File?>(null) }
-    var instStemFile by remember { mutableStateOf<File?>(null) }
+    // Separated stem file paths persisted safely
+    var vocalStemPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var instStemPath by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val vocalStemFile = vocalStemPath?.let { File(it) }?.takeIf { it.exists() }
+    val instStemFile = instStemPath?.let { File(it) }?.takeIf { it.exists() }
+
+    val activeAudioFile = when (selectedStemMode) {
+        "VOCAL" -> vocalStemFile ?: inputFile
+        "INSTRUMENTAL" -> instStemFile ?: inputFile
+        else -> inputFile
+    }
 
     // Download modal state
     var showDownloadDialog by remember { mutableStateOf(false) }
@@ -104,10 +114,9 @@ fun AudioTuningScreen(
                 ) { p ->
                     separationProgress = p
                 }
-                vocalStemFile = res.vocalFile
-                instStemFile = res.instrumentalFile
+                vocalStemPath = res.vocalFile.absolutePath
+                instStemPath = res.instrumentalFile.absolutePath
                 selectedStemMode = "VOCAL"
-                activeAudioFile = res.vocalFile
                 android.widget.Toast.makeText(
                     context,
                     "Vocals & Instrumental separated successfully!",
@@ -331,7 +340,7 @@ fun AudioTuningScreen(
                                     shape = RoundedCornerShape(14.dp)
                                 )
                                 .clickable {
-                                    selectedPreset = opt
+                                    selectedPresetId = opt.id
                                     pitchSemitones = opt.defaultPitch
                                 }
                                 .padding(vertical = 12.dp, horizontal = 4.dp),
@@ -411,7 +420,6 @@ fun AudioTuningScreen(
                                 audioPipeline.stopPlayback()
                                 isPlayingSource = false
                                 selectedStemMode = "MIX"
-                                activeAudioFile = inputFile
                             }
                             .padding(vertical = 8.dp, horizontal = 8.dp)
                     ) {
@@ -455,11 +463,10 @@ fun AudioTuningScreen(
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .clickable {
-                                if (vocalStemFile != null && vocalStemFile!!.exists()) {
+                                if (vocalStemFile != null && vocalStemFile.exists()) {
                                     audioPipeline.stopPlayback()
                                     isPlayingSource = false
                                     selectedStemMode = "VOCAL"
-                                    activeAudioFile = vocalStemFile!!
                                 } else {
                                     triggerStemSeparation()
                                 }
@@ -506,11 +513,10 @@ fun AudioTuningScreen(
                                 shape = RoundedCornerShape(10.dp)
                             )
                             .clickable {
-                                if (instStemFile != null && instStemFile!!.exists()) {
+                                if (instStemFile != null && instStemFile.exists()) {
                                     audioPipeline.stopPlayback()
                                     isPlayingSource = false
                                     selectedStemMode = "INSTRUMENTAL"
-                                    activeAudioFile = instStemFile!!
                                 } else {
                                     triggerStemSeparation()
                                 }
