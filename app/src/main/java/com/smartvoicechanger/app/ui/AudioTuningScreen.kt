@@ -50,17 +50,17 @@ fun AudioTuningScreen(
 
     val presets = remember {
         listOf(
-            PresetOption("saisho_utane", "Saisho Utane", "RVC v2 HD", 12.0f, SvcColors.CyanNeon),
-            PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 12.0f, SvcColors.PurpleNeon),
+            PresetOption("saisho_utane", "Saisho Utane", "RVC v2 HD", 0.0f, SvcColors.CyanNeon),
+            PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 0.0f, SvcColors.PurpleNeon),
             PresetOption("nexus_mech_ai", "Nexus Mech AI", "Sci-Fi Robot", -6.0f, Color(0xFF38BDF8)),
-            PresetOption("rei_ethereal", "Rei Ethereal", "Sweet Vocal", 10.0f, SvcColors.PinkNeon),
+            PresetOption("rei_ethereal", "Rei Ethereal", "Sweet Vocal", 0.0f, SvcColors.PinkNeon),
             PresetOption("ronin_heavy_blade", "Ronin Bass", "Cinematic Male", -12.0f, Color(0xFFF59E0B))
         )
     }
 
     var selectedPresetId by rememberSaveable { mutableStateOf("saisho_utane") }
     val selectedPreset = presets.find { it.id == selectedPresetId } ?: presets[0]
-    var pitchSemitones by rememberSaveable { mutableFloatStateOf(12.0f) }
+    var pitchSemitones by rememberSaveable { mutableFloatStateOf(0.0f) }
     var isPlayingSource by remember { mutableStateOf(false) }
 
     // Audio Stem Choice: "MIX", "VOCAL", "INSTRUMENTAL"
@@ -374,7 +374,7 @@ fun AudioTuningScreen(
                 }
             }
 
-            // 2.5. STUDIO MULTI-TRACK PROCESSING CONSOLE (Opsi A: Studio Track Splitter)
+            // 2.5. STUDIO MULTI-TRACK PROCESSING CONSOLE
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -390,54 +390,59 @@ fun AudioTuningScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             FuturisticRadarNodeIcon(size = 17.dp, tint = SvcColors.CyanNeon)
                             Spacer(modifier = Modifier.width(7.dp))
                             Text(
-                                text = "STUDIO TRACK ROUTING",
+                                text = "TRACK ROUTING",
                                 color = SvcColors.CyanNeon,
                                 fontFamily = SvcFonts.Orbitron,
                                 fontSize = 11.sp,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                letterSpacing = 1.sp
+                                letterSpacing = 1.sp,
+                                maxLines = 1
                             )
                         }
 
-                        // Compact Segmented Switcher: [ FULL SONG ] vs [ AI ISOLATED ]
+                        // Compact Segmented Switcher: [ FULL SONG ] vs [ AI STEMS ]
                         val isSeparatedActive = selectedStemMode != "MIX"
                         Row(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(Color(0x2B0D1933))
-                                .border(0.8.dp, Color(0x3338BDF8), RoundedCornerShape(12.dp))
-                                .padding(3.dp),
+                                .border(0.8.dp, Color(0x3338BDF8), RoundedCornerShape(10.dp))
+                                .padding(2.dp),
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
                             // Full Mix Pill
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(9.dp))
+                                    .clip(RoundedCornerShape(8.dp))
                                     .background(if (!isSeparatedActive) SvcColors.CyanNeon.copy(alpha = 0.25f) else Color.Transparent)
                                     .clickable {
                                         audioPipeline.stopPlayback()
                                         isPlayingSource = false
                                         selectedStemMode = "MIX"
                                     }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
                             ) {
                                 Text(
                                     text = "FULL SONG",
                                     color = if (!isSeparatedActive) Color.White else SvcColors.TextMuted,
                                     fontFamily = SvcFonts.Orbitron,
                                     fontSize = 9.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    maxLines = 1
                                 )
                             }
 
                             // AI Stems Pill
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(9.dp))
+                                    .clip(RoundedCornerShape(8.dp))
                                     .background(if (isSeparatedActive) SvcColors.PurpleNeon.copy(alpha = 0.3f) else Color.Transparent)
                                     .clickable {
                                         audioPipeline.stopPlayback()
@@ -448,14 +453,15 @@ fun AudioTuningScreen(
                                             triggerStemSeparation()
                                         }
                                     }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
                             ) {
                                 Text(
                                     text = "AI STEMS",
                                     color = if (isSeparatedActive) Color.White else SvcColors.TextMuted,
                                     fontFamily = SvcFonts.Orbitron,
                                     fontSize = 9.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    maxLines = 1
                                 )
                             }
                         }
