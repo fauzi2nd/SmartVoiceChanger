@@ -31,6 +31,7 @@ import com.smartvoicechanger.app.ui.theme.SvcColors
 @Composable
 fun HomeScreen(
     activeBackendName: String,
+    lastMeasuredLatencyMs: Double? = null,
     onPickAudio: () -> Unit,
     onRecordAudio: () -> Unit,
     onFromLink: (() -> Unit)? = null // Conditionally displayed only when available
@@ -331,7 +332,7 @@ fun HomeScreen(
                                     letterSpacing = 1.2.sp
                                 )
                                 Text(
-                                    text = "0.49 ms",
+                                    text = if (lastMeasuredLatencyMs != null) String.format("%.1f ms", lastMeasuredLatencyMs) else "-- ms",
                                     color = SvcColors.CyanNeon,
                                     fontFamily = com.smartvoicechanger.app.ui.theme.SvcFonts.Orbitron,
                                     fontSize = 13.sp,

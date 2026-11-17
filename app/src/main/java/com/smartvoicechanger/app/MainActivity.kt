@@ -110,37 +110,13 @@ fun MainAppHost(
     var isConverting by remember { mutableStateOf(false) }
     var conversionProgress by remember { mutableStateOf(0f) }
 
-    // Real audio recorder helper and reactive history items
+    // Real audio recorder helper and reactive history items (starts empty, populated only by real runs)
     val recorderHelper = remember { com.smartvoicechanger.app.audio.AudioRecorderHelper() }
     var isRecording by remember { mutableStateOf(false) }
     var recordingDurationSeconds by remember { mutableIntStateOf(0) }
+    var lastMeasuredLatencyMs by remember { mutableStateOf<Double?>(null) }
     val historyItems = remember {
-        mutableStateListOf(
-            com.smartvoicechanger.app.ui.ConversionHistoryItem(
-                id = "1",
-                fileName = "Cyberpunk_Vocal_Take1.wav",
-                modelName = "Aoi Cyber Girl",
-                duration = "00:45",
-                timestamp = "Just now",
-                latencyMs = 0.49
-            ),
-            com.smartvoicechanger.app.ui.ConversionHistoryItem(
-                id = "2",
-                fileName = "Anime_Voice_Sample.wav",
-                modelName = "Nexus Mech AI",
-                duration = "01:12",
-                timestamp = "10 mins ago",
-                latencyMs = 0.52
-            ),
-            com.smartvoicechanger.app.ui.ConversionHistoryItem(
-                id = "3",
-                fileName = "Podcast_Intro_Clean.wav",
-                modelName = "Rei Ethereal",
-                duration = "02:30",
-                timestamp = "Yesterday",
-                latencyMs = 0.48
-            )
-        )
+        mutableStateListOf<com.smartvoicechanger.app.ui.ConversionHistoryItem>()
     }
 
     val coroutineScope = rememberCoroutineScope()
@@ -158,6 +134,7 @@ fun MainAppHost(
         val outputFile = File(outputDir, "output_${System.currentTimeMillis()}.wav")
 
         coroutineScope.launch {
+            val startTime = System.currentTimeMillis()
             try {
                 val result = audioPipeline.convertAudio(
                     inputFile = inputFile,
@@ -167,14 +144,20 @@ fun MainAppHost(
                     conversionProgress = p
                 }
 
-                // Add to history list
+                val elapsedMs = (System.currentTimeMillis() - startTime).toDouble()
+                lastMeasuredLatencyMs = elapsedMs
+
+                // Add to history list with real measured execution latency
+                val audioDurationSec = (result.samples.size / result.sampleRate).coerceAtLeast(1)
+                val durationStr = String.format("%02d:%02d", audioDurationSec / 60, audioDurationSec % 60)
+
                 val newHistory = com.smartvoicechanger.app.ui.ConversionHistoryItem(
                     id = System.currentTimeMillis().toString(),
                     fileName = targetName,
                     modelName = selectedVoiceModel?.name ?: "Aoi Cyber Girl",
-                    duration = "00:0${(result.samples.size / result.sampleRate).coerceAtLeast(1)}",
+                    duration = durationStr,
                     timestamp = "Just now",
-                    latencyMs = 0.49,
+                    latencyMs = elapsedMs,
                     audioFile = outputFile
                 )
                 historyItems.add(0, newHistory)
@@ -422,6 +405,7 @@ fun MainAppHost(
             when (currentTab) {
                 0 -> HomeScreen(
                     activeBackendName = "ARM NEON CPU",
+                    lastMeasuredLatencyMs = lastMeasuredLatencyMs,
                     onPickAudio = { audioPickerLauncher.launch("audio/*") },
                     onRecordAudio = {
                         micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)

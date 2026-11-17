@@ -1,6 +1,6 @@
 # Development Status — Smart Voice Changer
 
-**Current Milestone:** Milestone 4 — Universal Adaptive Inference Engine Completed & Verified  
+**Current Milestone:** Milestone 5 — Audio Studio Workflow, Universal Decoder & Native DSP Pipeline  
 **Device Tested:** Realme 9 Pro (Snapdragon 695 / Adreno 619, Android 14 API 34)
 
 ---
@@ -9,12 +9,13 @@
 
 | Phase / Milestone | Status | Details |
 | :--- | :--- | :--- |
-| **M1: Hardware Abstraction** | Completed | `HardwareInspector` implemented; classifies devices into `ENTRY`, `STANDARD`, or `PERFORMANCE` profiles using RAM, CPU cores, thermals, and Vulkan compute probes. |
-| **M2: Backend Registry** | Completed | Uniform `InferenceBackend` contract implemented for `CpuBackend`, `NnapiBackend`, and `VulkanBackend`. |
-| **M3: Self-Test Engine** | Completed | `BackendSelfTester` checks initialization, test tensor execution, `NaN`/`Inf` detection, and numerical validation against CPU ground truth. |
-| **M4: Adaptive Inference Manager** | Completed | `AdaptiveInferenceManager` dynamically benchmarks backends and executes seamless chunk-boundary fallback to CPU when needed. |
-| **M5: Audio Integration** | Completed | Native C++20 DSP engine (`AudioDspEngine`) implemented for semitone pitch shifting, resampling, and WAV I/O with interactive `AudioTrack` playback. |
-| **M6: Physical Device Testing** | Completed | Verified on physical Realme 9 Pro: full end-to-end voice conversion (88,200 samples @ 44.1 kHz) and audio playback completed cleanly. |
+| **M1: Hardware Abstraction & Diagnostics** | Completed | `HardwareInspector` implemented; probes Qualcomm Snapdragon 695, Adreno 619, Vulkan 1.2 compute queues, and thermals. |
+| **M2: Backend Registry** | Completed | Clean `InferenceBackend` contract for `CpuBackend`, `NnapiBackend`, and `VulkanBackend`. |
+| **M3: Self-Test Engine & Benchmarking** | Completed | `BackendSelfTester` checks initialization, numerical validation, and latency with vocoder test block (`diagnostic_benchmark.onnx`). |
+| **M4: Audio Studio Workflow** | Completed | Full interactive multi-stage UX: Audio picker, Vocal recording booth, and Link ingest leading to `AudioTuningScreen` (pitch shift & model preset). |
+| **M5: Universal Audio Decoding & Native DSP** | Completed | `AudioDecoderHelper` converts any input format (MP3, AAC, FLAC, M4A, WAV) to PCM WAV; C++20 `AudioDspEngine` performs pitch shifting and resampling. |
+| **M6: Active Backend Reporting** | Active | Multi-threaded ARM NEON CPU set as active production backend. Vulkan GPU compute graph integration in research/evaluation. |
+| **M7: Full Neural Vocoder / RVC Model Integration** | In Progress | Integrating verified onnx runtime voice model pipeline into conversion path. |
 
 ---
 

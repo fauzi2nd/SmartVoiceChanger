@@ -6,17 +6,22 @@ The primary engineering goal of this project is to maximize actual on-device har
 
 ---
 
-## Current Milestone: Milestone 1 — GPU Diagnostic & Benchmark
+## Current Milestone: Milestone 5 — Audio Studio Workflow & Universal Audio Pipeline
 
-The project currently implements **Smart Voice Changer — GPU Diagnostic**, which performs hardware discovery, native Vulkan / OpenCL compute probing, and ONNX Runtime CPU & NNAPI inference benchmarking on Android devices.
+The project implements a modern mobile neural voice conversion studio with:
+- **Audio Decoding Engine**: Hardware-accelerated `MediaExtractor` + `MediaCodec` decoding MP3, AAC, M4A, FLAC, OGG, and WAV into standard 44.1 kHz 16-bit Mono PCM WAV.
+- **Studio Preset Tuning**: Interactive pitch tuning (-12 to +12 semitones) and target voice model preset selection with live preview.
+- **Microphone Vocal Booth**: Real-time microphone capture with live visualizer, recording review, and tuning handoff.
+- **Native C++20 Audio DSP**: SIMD-accelerated pitch shifting and sinc/linear resampling on ARM NEON.
+- **Hardware Honesty**: Active execution backend is reported as **ARM NEON CPU** (multi-threaded Kryo 660). Vulkan GPU is kept as an experimental compute backend until model execution is fully ported. Zero fake benchmark numbers or simulated history.
 
-### Key Capabilities
+---
+
+## Hardware Discovery & Inference Backends
 - **Device & SoC Diagnostics**: Real-time inspection of device manufacturer, model, Snapdragon SoC (`SM6375`), board, Android version, and build fingerprint.
 - **GPU Hardware Probing**: Real-time detection of Adreno 619 GPU, driver build string, and OpenGL ES 3.2 support.
 - **Native Vulkan Probing (JNI/C++)**: Dynamic runtime inspection of Vulkan 1.2 support, compute queue availability, FP16 compute shaders, and subgroup execution (64 threads).
-- **Native OpenCL Probing & Compute Verification (JNI/C++)**: Dynamic linking with `/vendor/lib64/libOpenCL.so` (declared in vendor public libraries), measuring compute latency on Adreno 619, and strictly verifying mathematical correctness against CPU reference implementations.
-- **ONNX Runtime Android**: Multi-threaded ARM NEON CPU inference alongside NNAPI provider evaluation with session initialization and latency benchmarking.
-- **Hardware Honesty Rule**: Strictly reports *"Execution Not Verified"* whenever GPU acceleration cannot be affirmatively proven.
+- **Inference Runtime**: Multi-threaded ARM NEON CPU inference via ONNX Runtime Android alongside NNAPI evaluation.
 
 ---
 
