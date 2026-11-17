@@ -89,6 +89,33 @@ float AudioDspEngine::calculateRms(const float* samples, size_t count) {
     return static_cast<float>(std::sqrt(sum / count));
 }
 
+std::vector<float> AudioDspEngine::mixStems(
+    const float* vocal_samples,
+    size_t vocal_len,
+    const float* inst_samples,
+    size_t inst_len,
+    float vocal_gain,
+    float inst_gain
+) {
+    size_t max_len = std::max(vocal_len, inst_len);
+    std::vector<float> mixed(max_len, 0.0f);
+
+    for (size_t i = 0; i < max_len; ++i) {
+        float v = (i < vocal_len && vocal_samples) ? vocal_samples[i] * vocal_gain : 0.0f;
+        float inst = (i < inst_len && inst_samples) ? inst_samples[i] * inst_gain : 0.0f;
+        float raw = v + inst;
+
+        // Hyperbolic tangent soft-knee peak limiter to prevent digital clipping/overflow
+        if (std::abs(raw) > 0.95f) {
+            mixed[i] = std::tanh(raw * 0.98f);
+        } else {
+            mixed[i] = raw;
+        }
+    }
+
+    return mixed;
+}
+
 std::vector<float> AudioDspEngine::computeMdxStft(
     const float* audio_samples,
     size_t total_samples,

@@ -28,6 +28,17 @@ public:
     // Fast root-mean-square calculation for audio visualization
     static float calculateRms(const float* samples, size_t count);
 
+    // Audio Remixing Engine: Mixes converted vocals and original instrumental stems
+    // Handles alignment, zero-latency phase match, per-track gain, and soft-knee peak limiting
+    static std::vector<float> mixStems(
+        const float* vocal_samples,
+        size_t vocal_len,
+        const float* inst_samples,
+        size_t inst_len,
+        float vocal_gain = 1.0f,
+        float inst_gain = 0.95f
+    );
+
     // STFT Spectrogram calculation for UVR MDX-Net
     // Slices input mono/stereo audio into [4, dim_f, dim_t] STFT planes (Real, Imag left, Real, Imag right)
     static std::vector<float> computeMdxStft(

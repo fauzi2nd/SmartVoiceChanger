@@ -161,6 +161,37 @@ Java_com_smartvoicechanger_app_NativeBridge_resampleNative(
 }
 
 JNIEXPORT jfloatArray JNICALL
+Java_com_smartvoicechanger_app_NativeBridge_mixStemsNative(
+    JNIEnv* env,
+    jobject /* this */,
+    jfloatArray vocal_samples_arr,
+    jfloatArray inst_samples_arr,
+    jfloat vocal_gain,
+    jfloat inst_gain) {
+    jsize v_len = env->GetArrayLength(vocal_samples_arr);
+    jfloat* v_data = env->GetFloatArrayElements(vocal_samples_arr, nullptr);
+
+    jsize inst_len = env->GetArrayLength(inst_samples_arr);
+    jfloat* inst_data = env->GetFloatArrayElements(inst_samples_arr, nullptr);
+
+    std::vector<float> mixed = AudioDspEngine::mixStems(
+        v_data,
+        static_cast<size_t>(v_len),
+        inst_data,
+        static_cast<size_t>(inst_len),
+        vocal_gain,
+        inst_gain
+    );
+
+    env->ReleaseFloatArrayElements(vocal_samples_arr, v_data, JNI_ABORT);
+    env->ReleaseFloatArrayElements(inst_samples_arr, inst_data, JNI_ABORT);
+
+    jfloatArray result = env->NewFloatArray(static_cast<jsize>(mixed.size()));
+    env->SetFloatArrayRegion(result, 0, static_cast<jsize>(mixed.size()), mixed.data());
+    return result;
+}
+
+JNIEXPORT jfloatArray JNICALL
 Java_com_smartvoicechanger_app_NativeBridge_computeMdxStftNative(
     JNIEnv* env,
     jobject /* this */,

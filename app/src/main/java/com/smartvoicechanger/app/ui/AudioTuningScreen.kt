@@ -39,7 +39,7 @@ fun AudioTuningScreen(
     audioPipeline: VoiceConversionPipeline,
     stemSeparator: com.smartvoicechanger.app.audio.StemSeparator,
     onBack: () -> Unit,
-    onStartConversion: (File, String, Float, String) -> Unit
+    onStartConversion: (File, String, Float, String, File?) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -649,7 +649,9 @@ fun AudioTuningScreen(
         Button(
             onClick = {
                 audioPipeline.stopPlayback()
-                onStartConversion(activeAudioFile, selectedPreset.name, pitchSemitones, selectedPreset.id)
+                // If user selected Vocals and instrumental stem exists, pass instStemFile so the pipeline mixes them back!
+                val instFileForMixing = if (selectedStemMode == "VOCAL") instStemFile else null
+                onStartConversion(activeAudioFile, selectedPreset.name, pitchSemitones, selectedPreset.id, instFileForMixing)
             },
             modifier = Modifier
                 .fillMaxWidth()

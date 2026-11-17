@@ -131,7 +131,8 @@ fun MainAppHost(
         targetName: String,
         pitchSemitones: Float = 12.0f,
         modelName: String = "Aoi Cyber Girl",
-        modelId: String = "aoi_cyber_girl"
+        modelId: String = "aoi_cyber_girl",
+        instrumentalFile: File? = null
     ) {
         selectedAudioFile = inputFile
         activeSubScreen = "NONE"
@@ -150,7 +151,8 @@ fun MainAppHost(
                     inputFile = inputFile,
                     outputFile = outputFile,
                     pitchSemitones = pitchSemitones,
-                    modelId = modelId
+                    modelId = modelId,
+                    instrumentalFile = instrumentalFile
                 ) { p ->
                     conversionProgress = p
                 }
@@ -273,8 +275,15 @@ fun MainAppHost(
                     audioPipeline = audioPipeline,
                     stemSeparator = stemSeparator,
                     onBack = { activeSubScreen = "NONE" },
-                    onStartConversion = { sourceFile, targetModelName, pitch, modelId ->
-                        processConversion(sourceFile, sourceFile.name, pitch, targetModelName, modelId)
+                    onStartConversion = { sourceFile, targetModelName, pitch, modelId, instFile ->
+                        processConversion(
+                            inputFile = sourceFile,
+                            targetName = sourceFile.name,
+                            pitchSemitones = pitch,
+                            modelName = targetModelName,
+                            modelId = modelId,
+                            instrumentalFile = instFile
+                        )
                     }
                 )
             }

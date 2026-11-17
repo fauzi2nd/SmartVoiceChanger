@@ -28,6 +28,7 @@ class VoiceConversionPipeline(private val context: Context) {
         outputFile: File,
         pitchSemitones: Float,
         modelId: String = "aoi_cyber_girl",
+        instrumentalFile: File? = null,
         onProgress: (Float) -> Unit
     ): AudioData = withContext(Dispatchers.Default) {
         onProgress(0.05f)
@@ -36,7 +37,7 @@ class VoiceConversionPipeline(private val context: Context) {
         val inputAudio = inputFile.inputStream().use {
             WavIoHelper.readWav(it)
         }
-        onProgress(0.20f)
+        onProgress(0.15f)
 
         // 2. Pitch shifting via high-performance native C++ DSP
         val shiftedSamples = if (kotlin.math.abs(pitchSemitones) > 0.01f) {
@@ -44,7 +45,7 @@ class VoiceConversionPipeline(private val context: Context) {
         } else {
             inputAudio.samples
         }
-        onProgress(0.40f)
+        onProgress(0.35f)
 
         // 3. Resample to standard target (44.1 kHz)
         val targetRate = 44100
@@ -53,17 +54,32 @@ class VoiceConversionPipeline(private val context: Context) {
         } else {
             shiftedSamples
         }
-        onProgress(0.55f)
+        onProgress(0.50f)
 
         // 4. Neural Model Inference via ONNX Runtime Mobile (ARM NEON)
         val neuralSamples = runNeuralInference(resampledSamples, modelId) { p ->
-            onProgress(0.55f + p * 0.35f)
+            onProgress(0.50f + p * 0.30f)
         }
-        onProgress(0.90f)
+        onProgress(0.80f)
 
-        val outputAudio = AudioData(neuralSamples, targetRate, 1)
+        // 5. Audio Remixer Stage: If instrumental stem is provided, combine converted vocals with instrumental
+        val finalSamples = if (instrumentalFile != null && instrumentalFile.exists()) {
+            val instAudio = instrumentalFile.inputStream().use { WavIoHelper.readWav(it) }
+            val instResampled = if (instAudio.sampleRate != targetRate) {
+                NativeBridge.resampleNative(instAudio.samples, instAudio.sampleRate, targetRate)
+            } else {
+                instAudio.samples
+            }
+            onProgress(0.90f)
+            NativeBridge.mixStemsNative(neuralSamples, instResampled, vocalGain = 1.0f, instGain = 0.92f)
+        } else {
+            neuralSamples
+        }
 
-        // 5. Save to output WAV
+        onProgress(0.95f)
+        val outputAudio = AudioData(finalSamples, targetRate, 1)
+
+        // 6. Save to output WAV
         WavIoHelper.writeWav(outputFile, outputAudio)
         onProgress(1.0f)
 
