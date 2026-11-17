@@ -23,6 +23,24 @@ object ModelDownloadService {
     const val MDX_MODEL_SIZE_LABEL = "63.7 MB"
     const val MDX_MODEL_LICENSE = "MIT License (Ultimate Vocal Remover / Anjok)"
 
+    // --- SAISHO UTANE RVC V2 VOICE MODEL ---
+    const val SAISHO_MODEL_FILENAME = "saisho_utane.onnx"
+    const val SAISHO_MODEL_SHA256 = "4491bf6a3321c910864e6f57e562d94fb3a3c1eeb5d81be0373d9e50364c2e03"
+    const val SAISHO_MODEL_SIZE_BYTES = 115300416L // ~110 MB
+    const val SAISHO_MODEL_SIZE_LABEL = "110 MB"
+    const val SAISHO_MODEL_LICENSE = "Creative Commons Attribution 4.0 (CC BY 4.0 - Utane Project)"
+
+    fun getSaishoModelFile(context: Context): File {
+        val dir = File(context.filesDir, "models/voice")
+        if (!dir.exists()) dir.mkdirs()
+        return File(dir, SAISHO_MODEL_FILENAME)
+    }
+
+    fun isSaishoModelReady(context: Context): Boolean {
+        val file = getSaishoModelFile(context)
+        return file.exists() && file.length() == SAISHO_MODEL_SIZE_BYTES
+    }
+
     fun getModelFile(context: Context): File {
         val dir = File(context.filesDir, "models/stem")
         if (!dir.exists()) dir.mkdirs()

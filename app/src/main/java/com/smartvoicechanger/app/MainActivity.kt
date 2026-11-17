@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
         val modelsDir = File(filesDir, "models")
         if (!modelsDir.exists()) modelsDir.mkdirs()
 
+        val prefs = getSharedPreferences("svc_prefs", MODE_PRIVATE)
+        val initialSetupCompleted = prefs.getBoolean("engine_setup_completed", false)
+
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
@@ -76,10 +79,21 @@ class MainActivity : ComponentActivity() {
                 )
             ) {
                 var showSplash by rememberSaveable { mutableStateOf(true) }
+                var showSetupWizard by rememberSaveable { mutableStateOf(!initialSetupCompleted) }
 
                 if (showSplash) {
                     SplashScreen(
                         onSplashFinished = { showSplash = false }
+                    )
+                } else if (showSetupWizard) {
+                    EngineSetupScreen(
+                        onCompleteSetup = {
+                            prefs.edit().putBoolean("engine_setup_completed", true).apply()
+                            showSetupWizard = false
+                        },
+                        onSkip = {
+                            showSetupWizard = false
+                        }
                     )
                 } else {
                     MainAppHost(

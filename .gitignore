@@ -56,3 +56,8 @@ captures/
 screen_shot.png
 screen_updated.png
 screen_check.png
+*.png
+
+# Large Model weights
+*.onnx
+*.pth
