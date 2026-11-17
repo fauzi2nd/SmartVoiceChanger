@@ -3,6 +3,7 @@ package com.smartvoicechanger.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
@@ -49,14 +50,15 @@ fun AudioTuningScreen(
 
     val presets = remember {
         listOf(
+            PresetOption("saisho_utane", "Saisho Utane", "RVC v2 HD", 12.0f, SvcColors.CyanNeon),
             PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 12.0f, SvcColors.PurpleNeon),
-            PresetOption("nexus_mech_ai", "Nexus Mech AI", "Sci-Fi Robot", -6.0f, SvcColors.CyanNeon),
+            PresetOption("nexus_mech_ai", "Nexus Mech AI", "Sci-Fi Robot", -6.0f, Color(0xFF38BDF8)),
             PresetOption("rei_ethereal", "Rei Ethereal", "Sweet Vocal", 10.0f, SvcColors.PinkNeon),
             PresetOption("ronin_heavy_blade", "Ronin Bass", "Cinematic Male", -12.0f, Color(0xFFF59E0B))
         )
     }
 
-    var selectedPresetId by rememberSaveable { mutableStateOf(presets[0].id) }
+    var selectedPresetId by rememberSaveable { mutableStateOf("saisho_utane") }
     val selectedPreset = presets.find { it.id == selectedPresetId } ?: presets[0]
     var pitchSemitones by rememberSaveable { mutableFloatStateOf(12.0f) }
     var isPlayingSource by remember { mutableStateOf(false) }
@@ -319,16 +321,19 @@ fun AudioTuningScreen(
                     letterSpacing = 1.sp
                 )
 
-                // 4-Preset Grid with Rich Visual Cards
+                // 5-Preset Horizontal Scrollable Carousel / Grid with Rich Visual Cards
+                val presetScrollState = rememberScrollState()
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(presetScrollState),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     presets.forEach { opt ->
                         val isSelected = selectedPreset.id == opt.id
                         Box(
                             modifier = Modifier
-                                .weight(1f)
+                                .width(76.dp)
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(
                                     if (isSelected) opt.color.copy(alpha = 0.22f)
@@ -358,8 +363,10 @@ fun AudioTuningScreen(
                                     text = opt.name.split(" ").first(),
                                     color = if (isSelected) Color.White else SvcColors.TextMuted,
                                     fontFamily = SvcFonts.Orbitron,
-                                    fontSize = 10.5.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    fontSize = 10.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                             }
                         }

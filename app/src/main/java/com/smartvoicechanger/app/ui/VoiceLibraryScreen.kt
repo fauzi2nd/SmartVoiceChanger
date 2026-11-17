@@ -58,10 +58,25 @@ fun VoiceLibraryScreen(
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isSaishoInstalled = remember {
+        com.smartvoicechanger.app.audio.ModelDownloadService.isSaishoModelReady(context)
+    }
+
     // Pre-configured models list with our Bundled Starter Model + Hugging Face Free Models
     var modelsList by remember {
         mutableStateOf(
             listOf(
+                PresetVoiceCard(
+                    id = "saisho_utane",
+                    name = "Saisho Utane",
+                    category = "ANIME",
+                    tag = "Official RVC v2 HD",
+                    sizeMb = 110,
+                    isInstalled = isSaishoInstalled,
+                    accentColor = SvcColors.CyanNeon,
+                    source = "On-Device / CC BY 4.0"
+                ),
                 PresetVoiceCard(
                     id = "aoi_rvc_v2",
                     name = "Aoi Cyber Girl",

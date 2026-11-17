@@ -141,6 +141,14 @@ class VoiceConversionPipeline(private val context: Context) {
     }
 
     private fun getOrExtractModel(modelId: String): File? {
+        // 1. Check if model exists in models/voice (e.g. saisho_utane.onnx)
+        val voiceDir = File(context.filesDir, "models/voice")
+        val voiceModelFile = File(voiceDir, "$modelId.onnx")
+        if (voiceModelFile.exists() && voiceModelFile.length() > 0) {
+            return voiceModelFile
+        }
+
+        // 2. Check if model exists in general models/ directory
         val modelsDir = File(context.filesDir, "models")
         if (!modelsDir.exists()) modelsDir.mkdirs()
         val targetFile = File(modelsDir, "$modelId.onnx")
@@ -149,6 +157,7 @@ class VoiceConversionPipeline(private val context: Context) {
             return targetFile
         }
 
+        // 3. Fallback to extracting from bundled assets if present
         return try {
             context.assets.open("models/$modelId.onnx").use { input ->
                 FileOutputStream(targetFile).use { output ->
