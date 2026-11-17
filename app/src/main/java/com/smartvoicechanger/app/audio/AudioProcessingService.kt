@@ -119,7 +119,16 @@ class AudioProcessingService : Service() {
                     val outputFile = File(outputPath)
                     val instFile = instPath?.let { File(it) }
 
-                    startForeground(NOTIFICATION_ID, buildProgressNotification(targetName, 0f, "Starting conversion..."))
+                    val notification = buildProgressNotification(targetName, 0f, "Starting conversion...")
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        startForeground(
+                            NOTIFICATION_ID,
+                            notification,
+                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
+                        )
+                    } else {
+                        startForeground(NOTIFICATION_ID, notification)
+                    }
                     startProcessing(inputFile, outputFile, targetName, modelName, modelId, pitch, instFile)
                 }
             }
