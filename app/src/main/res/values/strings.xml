@@ -1,0 +1,77 @@
+<resources>
+    <string name="app_name">Smart Voice Changer</string>
+    <string name="app_subtitle">AI-POWERED AUDIO STUDIO</string>
+
+    <!-- Navigation Tabs (Home, Models, Activity, Hardware) -->
+    <string name="nav_home">Home</string>
+    <string name="nav_models">Models</string>
+    <string name="nav_activity">Activity</string>
+    <string name="nav_hardware">Hardware</string>
+    <string name="badge_pro">Pro</string>
+
+    <!-- Home Screen -->
+    <string name="hero_title">Neural Synthesis,\nZero Latency</string>
+    <string name="hero_desc">Real-time AI voice morphing &amp; acoustic transformation.</string>
+    <string name="action_pick_audio">Audio</string>
+    <string name="action_pick_audio_sub">Songs &amp; Files</string>
+    <string name="action_record_voice">Record</string>
+    <string name="action_record_voice_sub">Microphone</string>
+    <string name="action_from_link">Link</string>
+    <string name="action_from_link_sub">URL / Cloud</string>
+    <string name="status_active_backend">Active Backend</string>
+    <string name="status_latency">Latency</string>
+
+    <!-- Models Screen -->
+    <string name="models_title">Voice Models</string>
+    <string name="cat_all">All</string>
+    <string name="cat_anime">Anime</string>
+    <string name="cat_character">Character</string>
+    <string name="cat_celebrity">Celebrity</string>
+    <string name="cat_custom">Custom</string>
+    <string name="badge_installed">✓ Installed</string>
+    <string name="btn_download_more">Download More Models</string>
+
+    <!-- Activity Screen (Ongoing Conversions & History) -->
+    <string name="activity_title">Activity &amp; Queue</string>
+    <string name="ongoing_conversions">Ongoing Conversion</string>
+    <string name="conversion_history">Conversion History</string>
+    <string name="no_ongoing_conversion">No conversion in progress</string>
+    <string name="status_converting">Converting with %1$s…</string>
+    <string name="status_completed">Completed</string>
+    <string name="status_idle">Idle</string>
+    <string name="sample_history_item_1">Cyberpunk_Vocal_Take1.wav</string>
+    <string name="sample_history_item_2">Anime_Voice_Sample.wav</string>
+    <string name="sample_history_item_3">Podcast_Intro_Clean.wav</string>
+
+    <!-- Voice Studio Screen (Shared / Engine) -->
+    <string name="studio_title">Voice Studio</string>
+    <string name="chip_conversion">Conversion</string>
+    <string name="chip_ab_compare">A/B Compare</string>
+    <string name="chip_preview">Preview</string>
+    <string name="subtab_voice_model">Voice Model</string>
+    <string name="subtab_advanced_settings">Advanced Settings</string>
+    <string name="label_pitch">Pitch</string>
+    <string name="label_index_rate">Index Rate</string>
+    <string name="label_transpose">Transpose</string>
+    <string name="btn_start_conversion">Start Conversion</string>
+    <string name="btn_converting">Converting (%1$d%%)...</string>
+    <string name="default_audio_name">sample_audio.wav</string>
+    <string name="default_audio_meta">44.1 kHz • Stereo • WAV</string>
+    <string name="model_rvc_tag">Natural &amp; Expressive RVC v2</string>
+
+    <!-- Hardware Screen -->
+    <string name="hw_title">Hardware Monitor</string>
+    <string name="hw_compatible">Compatible</string>
+    <string name="hw_optimal">Optimal</string>
+    <string name="hw_metric_cpu">CPU</string>
+    <string name="hw_metric_ram">RAM</string>
+    <string name="hw_metric_gpu">GPU</string>
+    <string name="hw_metric_temp">Temperature</string>
+    <string name="hw_throttling">Throttling</string>
+    <string name="hw_normal">Normal</string>
+    <string name="hw_detail">Details</string>
+    <string name="hw_supported_banner">Your device supports optimal AI hardware acceleration.</string>
+
+    <!-- Splash Screen -->
+    <string name="splash_loading">Loading...</string>
+</resources>

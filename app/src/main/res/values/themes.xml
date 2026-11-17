@@ -1,0 +1,11 @@
+<resources>
+    <!-- Base application theme with modern Android 12+ SplashScreen support -->
+    <style name="Theme.SmartVoiceChanger" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#040714</item>
+        <item name="android:navigationBarColor">#040714</item>
+        <item name="android:windowBackground">#040714</item>
+        <item name="android:windowSplashScreenBackground">#040714</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon</item>
+        <item name="android:windowSplashScreenAnimationDuration">500</item>
+    </style>
+</resources>
