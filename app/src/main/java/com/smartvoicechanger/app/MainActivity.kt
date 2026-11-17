@@ -122,7 +122,13 @@ fun MainAppHost(
     val coroutineScope = rememberCoroutineScope()
 
     // Function to trigger audio conversion pipeline
-    fun processConversion(inputFile: File, targetName: String, pitchSemitones: Float = 12.0f) {
+    fun processConversion(
+        inputFile: File,
+        targetName: String,
+        pitchSemitones: Float = 12.0f,
+        modelName: String = "Aoi Cyber Girl",
+        modelId: String = "aoi_cyber_girl"
+    ) {
         selectedAudioFile = inputFile
         activeSubScreen = "NONE"
         currentTab = 2 // Switch directly to Activity tab
@@ -139,7 +145,8 @@ fun MainAppHost(
                 val result = audioPipeline.convertAudio(
                     inputFile = inputFile,
                     outputFile = outputFile,
-                    pitchSemitones = pitchSemitones
+                    pitchSemitones = pitchSemitones,
+                    modelId = modelId
                 ) { p ->
                     conversionProgress = p
                 }
@@ -154,7 +161,7 @@ fun MainAppHost(
                 val newHistory = com.smartvoicechanger.app.ui.ConversionHistoryItem(
                     id = System.currentTimeMillis().toString(),
                     fileName = targetName,
-                    modelName = selectedVoiceModel?.name ?: "Aoi Cyber Girl",
+                    modelName = modelName,
                     duration = durationStr,
                     timestamp = "Just now",
                     latencyMs = elapsedMs,
@@ -237,8 +244,8 @@ fun MainAppHost(
                     inputFile = file,
                     audioPipeline = audioPipeline,
                     onBack = { activeSubScreen = "NONE" },
-                    onStartConversion = { sourceFile, targetModelName, pitch ->
-                        processConversion(sourceFile, sourceFile.name, pitch)
+                    onStartConversion = { sourceFile, targetModelName, pitch, modelId ->
+                        processConversion(sourceFile, sourceFile.name, pitch, targetModelName, modelId)
                     }
                 )
             }

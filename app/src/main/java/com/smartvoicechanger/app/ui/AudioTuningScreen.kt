@@ -37,14 +37,14 @@ fun AudioTuningScreen(
     inputFile: File,
     audioPipeline: VoiceConversionPipeline,
     onBack: () -> Unit,
-    onStartConversion: (File, String, Float) -> Unit
+    onStartConversion: (File, String, Float, String) -> Unit
 ) {
     val presets = remember {
         listOf(
-            PresetOption("aoi", "Aoi Cyber Girl", "Anime Heroine", 12.0f, SvcColors.PurpleNeon),
-            PresetOption("nexus", "Nexus Mech AI", "Sci-Fi Robot", -6.0f, SvcColors.CyanNeon),
-            PresetOption("rei", "Rei Ethereal", "Sweet Vocal", 10.0f, SvcColors.PinkNeon),
-            PresetOption("ronin", "Ronin Bass", "Cinematic Male", -12.0f, Color(0xFFF59E0B))
+            PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 12.0f, SvcColors.PurpleNeon),
+            PresetOption("nexus_mech_ai", "Nexus Mech AI", "Sci-Fi Robot", -6.0f, SvcColors.CyanNeon),
+            PresetOption("rei_ethereal", "Rei Ethereal", "Sweet Vocal", 10.0f, SvcColors.PinkNeon),
+            PresetOption("ronin_heavy_blade", "Ronin Bass", "Cinematic Male", -12.0f, Color(0xFFF59E0B))
         )
     }
 
@@ -368,7 +368,7 @@ fun AudioTuningScreen(
         Button(
             onClick = {
                 audioPipeline.stopPlayback()
-                onStartConversion(inputFile, selectedPreset.name, pitchSemitones)
+                onStartConversion(inputFile, selectedPreset.name, pitchSemitones, selectedPreset.id)
             },
             modifier = Modifier
                 .fillMaxWidth()
