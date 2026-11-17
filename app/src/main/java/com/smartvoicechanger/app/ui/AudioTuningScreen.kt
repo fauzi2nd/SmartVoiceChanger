@@ -250,26 +250,126 @@ fun AudioTuningScreen(
                                 .padding(vertical = 12.dp, horizontal = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                FuturisticModelsIcon(selected = isSelected, size = 26.dp)
-                                Spacer(modifier = Modifier.height(8.dp))
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FuturisticModelsIcon(
+                                    selected = isSelected,
+                                    size = 22.dp
+                                )
                                 Text(
                                     text = opt.name.split(" ").first(),
                                     color = if (isSelected) Color.White else SvcColors.TextMuted,
                                     fontFamily = SvcFonts.Orbitron,
                                     fontSize = 10.5.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = opt.role,
-                                    color = if (isSelected) opt.color else SvcColors.TextMuted.copy(alpha = 0.6f),
-                                    fontFamily = SvcFonts.Rajdhani,
-                                    fontSize = 9.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                                    maxLines = 1
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                 )
                             }
+                        }
+                    }
+                }
+            }
+
+            // 2.5. Audio Stem Processing Mode
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "AUDIO PROCESSING SOURCE",
+                        color = SvcColors.CyanNeon,
+                        fontFamily = SvcFonts.Orbitron,
+                        fontSize = 11.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "FULL MIX ACTIVE",
+                        color = SvcColors.GreenNeon,
+                        fontFamily = SvcFonts.Rajdhani,
+                        fontSize = 10.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Full Mix / Mixed Audio Option (ACTIVE & FUNCTIONAL)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0x3300E5FF))
+                            .border(1.2.dp, SvcColors.CyanNeon, RoundedCornerShape(10.dp))
+                            .padding(vertical = 8.dp, horizontal = 10.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(SvcColors.GreenNeon)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Full Audio Mix",
+                                    color = Color.White,
+                                    fontFamily = SvcFonts.Orbitron,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Direct input stream",
+                                color = SvcColors.CyanSoft,
+                                fontFamily = SvcFonts.Rajdhani,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+
+                    // Stem Separation Option (TRANSPARENTLY MARKED AS PENDING MODEL COMPATIBILITY)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0x150A1226))
+                            .border(0.8.dp, Color(0x3338BDF8), RoundedCornerShape(10.dp))
+                            .padding(vertical = 8.dp, horizontal = 10.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .clip(CircleShape)
+                                        .background(SvcColors.TextMuted)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Vocal / Instrumental",
+                                    color = SvcColors.TextMuted,
+                                    fontFamily = SvcFonts.Orbitron,
+                                    fontSize = 10.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Stem model not loaded",
+                                color = Color(0xFFF59E0B),
+                                fontFamily = SvcFonts.Rajdhani,
+                                fontSize = 9.5.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                            )
                         }
                     }
                 }

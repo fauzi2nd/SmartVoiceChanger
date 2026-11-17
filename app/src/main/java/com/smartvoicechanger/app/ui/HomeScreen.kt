@@ -32,6 +32,8 @@ import com.smartvoicechanger.app.ui.theme.SvcColors
 fun HomeScreen(
     activeBackendName: String,
     lastMeasuredLatencyMs: Double? = null,
+    isImportingAudio: Boolean = false,
+    importProgress: Float = 0f,
     onPickAudio: () -> Unit,
     onRecordAudio: () -> Unit,
     onFromLink: (() -> Unit)? = null // Conditionally displayed only when available
@@ -50,6 +52,58 @@ fun HomeScreen(
             alignment = Alignment.TopCenter,
             modifier = Modifier.fillMaxSize()
         )
+
+        // Overlay Loading Modal when Importing Audio
+        if (isImportingAudio) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xCC040614))
+                    .clickable(enabled = false) {}, // Prevent taps
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xE60A1226))
+                        .border(1.2.dp, SvcColors.CyanNeon, RoundedCornerShape(20.dp))
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = SvcColors.CyanNeon,
+                            trackColor = Color(0x3338BDF8),
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(46.dp)
+                        )
+                        Text(
+                            text = "IMPORTING & DECODING AUDIO",
+                            color = Color.White,
+                            fontFamily = com.smartvoicechanger.app.ui.theme.SvcFonts.Orbitron,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = if (importProgress > 0f) {
+                                "Decoding hardware PCM streams... ${(importProgress * 100).toInt()}%"
+                            } else {
+                                "Validating audio format container..."
+                            },
+                            color = SvcColors.CyanSoft,
+                            fontFamily = com.smartvoicechanger.app.ui.theme.SvcFonts.Rajdhani,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
 
         // Subtle gradient overlay for lower UI elements contrast
         Box(

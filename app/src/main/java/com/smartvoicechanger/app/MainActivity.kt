@@ -189,31 +189,58 @@ fun MainAppHost(
     // Context for ContentResolver
     val context = androidx.compose.ui.platform.LocalContext.current
 
+    var isImportingAudio by remember { mutableStateOf(false) }
+    var importProgress by remember { mutableFloatStateOf(0f) }
+
     // SAF Audio Picker Launcher
     val audioPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        uri?.let {
+        // Only trigger if user selected a file (uri != null) and not currently importing
+        if (uri != null && !isImportingAudio) {
             val dest = File(cacheDir, "imported_${System.currentTimeMillis()}.wav")
+            isImportingAudio = true
+            importProgress = 0f
+
             coroutineScope.launch {
-                // Universal decoder: Handles MP3, M4A, AAC, FLAC, WAV into PCM WAV
-                val success = com.smartvoicechanger.app.audio.AudioDecoderHelper.decodeToPcmWav(context, uri, dest)
-                if (success && dest.exists()) {
-                    tuningFile = dest
-                    activeSubScreen = "AUDIO_TUNING"
-                } else {
-                    // Fallback to raw copy if decoder had issue
-                    try {
-                        context.contentResolver.openInputStream(uri)?.use { input ->
-                            dest.outputStream().use { output -> input.copyTo(output) }
+                try {
+                    // Universal hardware decoder: MediaCodec + MediaExtractor into standard 44.1 kHz PCM WAV
+                    val success = com.smartvoicechanger.app.audio.AudioDecoderHelper.decodeToPcmWav(
+                        context = context,
+                        inputUri = uri,
+                        outputWavFile = dest,
+                        onProgress = { p ->
+                            importProgress = p
                         }
-                        if (dest.exists()) {
-                            tuningFile = dest
-                            activeSubScreen = "AUDIO_TUNING"
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                    )
+
+                    if (success && dest.exists() && com.smartvoicechanger.app.audio.AudioDecoderHelper.isValidWav(dest)) {
+                        tuningFile = dest
+                        activeSubScreen = "AUDIO_TUNING"
+                    } else {
+                        // Decode failed or invalid format: cleanly delete any partial artifact and report via Toast
+                        try {
+                            if (dest.exists()) dest.delete()
+                        } catch (_: Exception) {}
+                        android.widget.Toast.makeText(
+                            context,
+                            "Unsupported audio format or failed to decode file.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    try {
+                        if (dest.exists()) dest.delete()
+                    } catch (_: Exception) {}
+                    android.widget.Toast.makeText(
+                        context,
+                        "Error decoding audio file: ${e.localizedMessage ?: "Unknown error"}",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                } finally {
+                    isImportingAudio = false
+                    importProgress = 0f
                 }
             }
         }
@@ -413,12 +440,22 @@ fun MainAppHost(
                 0 -> HomeScreen(
                     activeBackendName = "ARM NEON CPU",
                     lastMeasuredLatencyMs = lastMeasuredLatencyMs,
-                    onPickAudio = { audioPickerLauncher.launch("audio/*") },
+                    isImportingAudio = isImportingAudio,
+                    importProgress = importProgress,
+                    onPickAudio = {
+                        if (!isImportingAudio) {
+                            audioPickerLauncher.launch("audio/*")
+                        }
+                    },
                     onRecordAudio = {
-                        micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                        if (!isImportingAudio) {
+                            micPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                        }
                     },
                     onFromLink = {
-                        activeSubScreen = "LINK_INGEST"
+                        if (!isImportingAudio) {
+                            activeSubScreen = "LINK_INGEST"
+                        }
                     }
                 )
                 1 -> VoiceLibraryScreen(
