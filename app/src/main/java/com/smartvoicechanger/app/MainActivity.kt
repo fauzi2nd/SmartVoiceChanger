@@ -110,8 +110,12 @@ fun MainAppHost(
     var isConverting by remember { mutableStateOf(false) }
     var conversionProgress by remember { mutableStateOf(0f) }
 
+    // Context for ContentResolver
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     // Real audio recorder helper and reactive history items (starts empty, populated only by real runs)
     val recorderHelper = remember { com.smartvoicechanger.app.audio.AudioRecorderHelper() }
+    val stemSeparator = remember { com.smartvoicechanger.app.audio.StemSeparator(context) }
     var isRecording by remember { mutableStateOf(false) }
     var recordingDurationSeconds by remember { mutableIntStateOf(0) }
     var lastMeasuredLatencyMs by remember { mutableStateOf<Double?>(null) }
@@ -185,9 +189,6 @@ fun MainAppHost(
             activeSubScreen = "RECORD_BOOTH"
         }
     }
-
-    // Context for ContentResolver
-    val context = androidx.compose.ui.platform.LocalContext.current
 
     var isImportingAudio by remember { mutableStateOf(false) }
     var importProgress by remember { mutableFloatStateOf(0f) }
@@ -270,6 +271,7 @@ fun MainAppHost(
                 AudioTuningScreen(
                     inputFile = file,
                     audioPipeline = audioPipeline,
+                    stemSeparator = stemSeparator,
                     onBack = { activeSubScreen = "NONE" },
                     onStartConversion = { sourceFile, targetModelName, pitch, modelId ->
                         processConversion(sourceFile, sourceFile.name, pitch, targetModelName, modelId)

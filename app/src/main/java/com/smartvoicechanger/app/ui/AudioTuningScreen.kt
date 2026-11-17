@@ -22,6 +22,7 @@ import com.smartvoicechanger.app.audio.VoiceConversionPipeline
 import com.smartvoicechanger.app.audio.WavIoHelper
 import com.smartvoicechanger.app.ui.theme.SvcColors
 import com.smartvoicechanger.app.ui.theme.SvcFonts
+import kotlinx.coroutines.launch
 import java.io.File
 
 data class PresetOption(
@@ -36,9 +37,13 @@ data class PresetOption(
 fun AudioTuningScreen(
     inputFile: File,
     audioPipeline: VoiceConversionPipeline,
+    stemSeparator: com.smartvoicechanger.app.audio.StemSeparator,
     onBack: () -> Unit,
     onStartConversion: (File, String, Float, String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     val presets = remember {
         listOf(
             PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 12.0f, SvcColors.PurpleNeon),
@@ -51,6 +56,28 @@ fun AudioTuningScreen(
     var selectedPreset by remember { mutableStateOf(presets[0]) }
     var pitchSemitones by remember { mutableFloatStateOf(12.0f) }
     var isPlayingSource by remember { mutableStateOf(false) }
+
+    // Audio Stem Choice: "MIX", "VOCAL", "INSTRUMENTAL"
+    var selectedStemMode by remember { mutableStateOf("MIX") }
+    var activeAudioFile by remember { mutableStateOf(inputFile) }
+
+    // Separated stem files
+    var vocalStemFile by remember { mutableStateOf<File?>(null) }
+    var instStemFile by remember { mutableStateOf<File?>(null) }
+
+    // Download modal state
+    var showDownloadDialog by remember { mutableStateOf(false) }
+    var isDownloadingModel by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableFloatStateOf(0f) }
+
+    // Separation running state
+    var isSeparating by remember { mutableStateOf(false) }
+    var separationProgress by remember { mutableFloatStateOf(0f) }
+    var separationJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    var isModelInstalled by remember {
+        mutableStateOf(com.smartvoicechanger.app.audio.ModelDownloadService.isModelReady(context))
+    }
 
     Column(
         modifier = Modifier
@@ -159,7 +186,7 @@ fun AudioTuningScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = inputFile.name,
+                                text = activeAudioFile.name,
                                 color = Color.White,
                                 fontFamily = SvcFonts.Orbitron,
                                 fontSize = 12.sp,
@@ -168,8 +195,12 @@ fun AudioTuningScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "44.1 kHz PCM • Input Audio",
-                                color = SvcColors.CyanSoft,
+                                text = when (selectedStemMode) {
+                                    "VOCAL" -> "44.1 kHz PCM • Isolated Vocals Stem"
+                                    "INSTRUMENTAL" -> "44.1 kHz PCM • Isolated Instrumental Stem"
+                                    else -> "44.1 kHz PCM • Full Audio Mix"
+                                },
+                                color = if (selectedStemMode == "VOCAL") SvcColors.PurpleNeon else if (selectedStemMode == "INSTRUMENTAL") SvcColors.GreenNeon else SvcColors.CyanSoft,
                                 fontFamily = SvcFonts.Rajdhani,
                                 fontSize = 11.5.sp,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
@@ -193,7 +224,7 @@ fun AudioTuningScreen(
                                 } else {
                                     isPlayingSource = true
                                     try {
-                                        val audio = inputFile.inputStream().use { WavIoHelper.readWav(it) }
+                                        val audio = activeAudioFile.inputStream().use { WavIoHelper.readWav(it) }
                                         audioPipeline.playAudio(audio)
                                     } catch (e: Exception) {
                                         e.printStackTrace()
@@ -287,8 +318,16 @@ fun AudioTuningScreen(
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = "FULL MIX ACTIVE",
-                        color = SvcColors.GreenNeon,
+                        text = when (selectedStemMode) {
+                            "VOCAL" -> "VOCALS ACTIVE"
+                            "INSTRUMENTAL" -> "INSTRUMENTAL ACTIVE"
+                            else -> "FULL MIX ACTIVE"
+                        },
+                        color = when (selectedStemMode) {
+                            "VOCAL" -> SvcColors.PurpleNeon
+                            "INSTRUMENTAL" -> SvcColors.GreenNeon
+                            else -> SvcColors.CyanNeon
+                        },
                         fontFamily = SvcFonts.Rajdhani,
                         fontSize = 10.sp,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
@@ -300,75 +339,215 @@ fun AudioTuningScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Full Mix / Mixed Audio Option (ACTIVE & FUNCTIONAL)
+                    // Option 1: Full Mix
+                    val isMixSelected = selectedStemMode == "MIX"
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0x3300E5FF))
-                            .border(1.2.dp, SvcColors.CyanNeon, RoundedCornerShape(10.dp))
-                            .padding(vertical = 8.dp, horizontal = 10.dp)
+                            .background(if (isMixSelected) Color(0x3300E5FF) else Color(0x150A1226))
+                            .border(
+                                width = if (isMixSelected) 1.2.dp else 0.8.dp,
+                                color = if (isMixSelected) SvcColors.CyanNeon else Color(0x2238BDF8),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                audioPipeline.stopPlayback()
+                                isPlayingSource = false
+                                selectedStemMode = "MIX"
+                                activeAudioFile = inputFile
+                            }
+                            .padding(vertical = 8.dp, horizontal = 8.dp)
                     ) {
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(7.dp)
+                                        .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(SvcColors.GreenNeon)
+                                        .background(if (isMixSelected) SvcColors.CyanNeon else SvcColors.TextMuted)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Full Audio Mix",
-                                    color = Color.White,
+                                    text = "Full Mix",
+                                    color = if (isMixSelected) Color.White else SvcColors.TextMuted,
                                     fontFamily = SvcFonts.Orbitron,
-                                    fontSize = 10.5.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                 )
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Direct input stream",
+                                text = "Direct input",
                                 color = SvcColors.CyanSoft,
                                 fontFamily = SvcFonts.Rajdhani,
-                                fontSize = 10.sp
+                                fontSize = 9.5.sp
                             )
                         }
                     }
 
-                    // Stem Separation Option (TRANSPARENTLY MARKED AS PENDING MODEL COMPATIBILITY)
+                    // Option 2: Vocals
+                    val isVocalSelected = selectedStemMode == "VOCAL"
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0x150A1226))
-                            .border(0.8.dp, Color(0x3338BDF8), RoundedCornerShape(10.dp))
-                            .padding(vertical = 8.dp, horizontal = 10.dp)
+                            .background(if (isVocalSelected) Color(0x33A855F7) else Color(0x150A1226))
+                            .border(
+                                width = if (isVocalSelected) 1.2.dp else 0.8.dp,
+                                color = if (isVocalSelected) SvcColors.PurpleNeon else Color(0x2238BDF8),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                if (vocalStemFile != null && vocalStemFile!!.exists()) {
+                                    audioPipeline.stopPlayback()
+                                    isPlayingSource = false
+                                    selectedStemMode = "VOCAL"
+                                    activeAudioFile = vocalStemFile!!
+                                } else if (!isModelInstalled) {
+                                    showDownloadDialog = true
+                                } else if (!isSeparating) {
+                                    // Start separation
+                                    isSeparating = true
+                                    separationProgress = 0.05f
+                                    val outVoc = File(context.cacheDir, "stem_vocals_${System.currentTimeMillis()}.wav")
+                                    val outInst = File(context.cacheDir, "stem_inst_${System.currentTimeMillis()}.wav")
+
+                                    separationJob = coroutineScope.launch {
+                                        try {
+                                            val res = stemSeparator.separate(
+                                                inputFile = inputFile,
+                                                outputVocalFile = outVoc,
+                                                outputInstrumentalFile = outInst
+                                            ) { p ->
+                                                separationProgress = p
+                                            }
+                                            vocalStemFile = res.vocalFile
+                                            instStemFile = res.instrumentalFile
+                                            selectedStemMode = "VOCAL"
+                                            activeAudioFile = res.vocalFile
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Separation failed: ${e.localizedMessage}",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        } finally {
+                                            isSeparating = false
+                                            separationProgress = 0f
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(vertical = 8.dp, horizontal = 8.dp)
                     ) {
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(7.dp)
+                                        .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(SvcColors.TextMuted)
+                                        .background(if (isVocalSelected) SvcColors.PurpleNeon else SvcColors.TextMuted)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "Vocal / Instrumental",
-                                    color = SvcColors.TextMuted,
+                                    text = "Vocals",
+                                    color = if (isVocalSelected) Color.White else SvcColors.TextMuted,
                                     fontFamily = SvcFonts.Orbitron,
                                     fontSize = 10.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                 )
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Stem model not loaded",
-                                color = Color(0xFFF59E0B),
+                                text = if (vocalStemFile != null) "Stem Ready" else if (!isModelInstalled) "Get Model" else "Separate",
+                                color = if (vocalStemFile != null) SvcColors.GreenNeon else if (!isModelInstalled) Color(0xFFF59E0B) else SvcColors.CyanNeon,
                                 fontFamily = SvcFonts.Rajdhani,
-                                fontSize = 9.5.sp,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                fontSize = 9.5.sp
+                            )
+                        }
+                    }
+
+                    // Option 3: Instrumental
+                    val isInstSelected = selectedStemMode == "INSTRUMENTAL"
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isInstSelected) Color(0x3310B981) else Color(0x150A1226))
+                            .border(
+                                width = if (isInstSelected) 1.2.dp else 0.8.dp,
+                                color = if (isInstSelected) SvcColors.GreenNeon else Color(0x2238BDF8),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable {
+                                if (instStemFile != null && instStemFile!!.exists()) {
+                                    audioPipeline.stopPlayback()
+                                    isPlayingSource = false
+                                    selectedStemMode = "INSTRUMENTAL"
+                                    activeAudioFile = instStemFile!!
+                                } else if (!isModelInstalled) {
+                                    showDownloadDialog = true
+                                } else if (!isSeparating) {
+                                    // Start separation
+                                    isSeparating = true
+                                    separationProgress = 0.05f
+                                    val outVoc = File(context.cacheDir, "stem_vocals_${System.currentTimeMillis()}.wav")
+                                    val outInst = File(context.cacheDir, "stem_inst_${System.currentTimeMillis()}.wav")
+
+                                    separationJob = coroutineScope.launch {
+                                        try {
+                                            val res = stemSeparator.separate(
+                                                inputFile = inputFile,
+                                                outputVocalFile = outVoc,
+                                                outputInstrumentalFile = outInst
+                                            ) { p ->
+                                                separationProgress = p
+                                            }
+                                            vocalStemFile = res.vocalFile
+                                            instStemFile = res.instrumentalFile
+                                            selectedStemMode = "INSTRUMENTAL"
+                                            activeAudioFile = res.instrumentalFile
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Separation failed: ${e.localizedMessage}",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        } finally {
+                                            isSeparating = false
+                                            separationProgress = 0f
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(vertical = 8.dp, horizontal = 8.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isInstSelected) SvcColors.GreenNeon else SvcColors.TextMuted)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "Inst",
+                                    color = if (isInstSelected) Color.White else SvcColors.TextMuted,
+                                    fontFamily = SvcFonts.Orbitron,
+                                    fontSize = 10.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (instStemFile != null) "Stem Ready" else if (!isModelInstalled) "Get Model" else "Separate",
+                                color = if (instStemFile != null) SvcColors.GreenNeon else if (!isModelInstalled) Color(0xFFF59E0B) else SvcColors.CyanNeon,
+                                fontFamily = SvcFonts.Rajdhani,
+                                fontSize = 9.5.sp
                             )
                         }
                     }
@@ -468,7 +647,7 @@ fun AudioTuningScreen(
         Button(
             onClick = {
                 audioPipeline.stopPlayback()
-                onStartConversion(inputFile, selectedPreset.name, pitchSemitones, selectedPreset.id)
+                onStartConversion(activeAudioFile, selectedPreset.name, pitchSemitones, selectedPreset.id)
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -492,6 +671,177 @@ fun AudioTuningScreen(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
+            }
+        }
+    }
+
+    // Modal 1: On-Demand Model Download Dialog
+    if (showDownloadDialog) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = {
+            if (!isDownloadingModel) showDownloadDialog = false
+        }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xF00A1226))
+                    .border(1.2.dp, SvcColors.PurpleNeon, RoundedCornerShape(20.dp))
+                    .padding(20.dp)
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "STEM SEPARATION MODEL",
+                        color = Color.White,
+                        fontFamily = SvcFonts.Orbitron,
+                        fontSize = 13.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        text = "Download UVR-MDX-Net Vocals Model for high-fidelity vocal & instrumental extraction.",
+                        color = SvcColors.CyanSoft,
+                        fontFamily = SvcFonts.Rajdhani,
+                        fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    // Details Card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0x2238BDF8))
+                            .padding(12.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Download Size:", color = SvcColors.TextMuted, fontSize = 11.sp, fontFamily = SvcFonts.Rajdhani)
+                                Text(com.smartvoicechanger.app.audio.ModelDownloadService.MDX_MODEL_SIZE_LABEL, color = Color.White, fontSize = 11.sp, fontFamily = SvcFonts.Orbitron)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("License:", color = SvcColors.TextMuted, fontSize = 11.sp, fontFamily = SvcFonts.Rajdhani)
+                                Text("MIT License", color = SvcColors.GreenNeon, fontSize = 11.sp, fontFamily = SvcFonts.Orbitron)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Verification:", color = SvcColors.TextMuted, fontSize = 11.sp, fontFamily = SvcFonts.Rajdhani)
+                                Text("SHA-256 Checksum", color = SvcColors.CyanNeon, fontSize = 11.sp, fontFamily = SvcFonts.Rajdhani)
+                            }
+                        }
+                    }
+
+                    if (isDownloadingModel) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { downloadProgress },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                color = SvcColors.PurpleNeon,
+                                trackColor = Color(0x3338BDF8)
+                            )
+                            Text(
+                                text = "Downloading & verifying... ${(downloadProgress * 100).toInt()}%",
+                                color = Color.White,
+                                fontFamily = SvcFonts.Orbitron,
+                                fontSize = 11.sp
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { showDownloadDialog = false },
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x4438BDF8))
+                            ) {
+                                Text("CANCEL", color = SvcColors.TextMuted, fontFamily = SvcFonts.Orbitron, fontSize = 11.sp)
+                            }
+                            Button(
+                                onClick = {
+                                    isDownloadingModel = true
+                                    downloadProgress = 0f
+                                    coroutineScope.launch {
+                                        val success = com.smartvoicechanger.app.audio.ModelDownloadService.downloadModel(context) { p ->
+                                            downloadProgress = p
+                                        }
+                                        isDownloadingModel = false
+                                        if (success) {
+                                            isModelInstalled = true
+                                            showDownloadDialog = false
+                                            android.widget.Toast.makeText(context, "Model verified & ready!", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            android.widget.Toast.makeText(context, "Download failed or checksum mismatch.", android.widget.Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1.5f).height(44.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = SvcColors.PurpleNeon)
+                            ) {
+                                Text("DOWNLOAD", color = Color.White, fontFamily = SvcFonts.Orbitron, fontSize = 11.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal 2: Source Separation Progress Modal
+    if (isSeparating) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = {}) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xF00A1226))
+                    .border(1.2.dp, SvcColors.CyanNeon, RoundedCornerShape(20.dp))
+                    .padding(24.dp)
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(
+                        color = SvcColors.CyanNeon,
+                        trackColor = Color(0x3338BDF8),
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(46.dp)
+                    )
+                    Text(
+                        text = "NEURAL STEM SEPARATION",
+                        color = Color.White,
+                        fontFamily = SvcFonts.Orbitron,
+                        fontSize = 12.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "Executing UVR-MDX-Net STFT inference chunks... ${(separationProgress * 100).toInt()}%",
+                        color = SvcColors.CyanSoft,
+                        fontFamily = SvcFonts.Rajdhani,
+                        fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            separationJob?.cancel()
+                            isSeparating = false
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SvcColors.PinkNeon.copy(alpha = 0.6f))
+                    ) {
+                        Text("CANCEL SEPARATION", color = SvcColors.PinkNeon, fontFamily = SvcFonts.Orbitron, fontSize = 10.sp)
+                    }
+                }
             }
         }
     }

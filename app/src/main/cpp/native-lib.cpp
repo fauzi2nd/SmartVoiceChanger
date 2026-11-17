@@ -160,4 +160,61 @@ Java_com_smartvoicechanger_app_NativeBridge_resampleNative(
     return result;
 }
 
+JNIEXPORT jfloatArray JNICALL
+Java_com_smartvoicechanger_app_NativeBridge_computeMdxStftNative(
+    JNIEnv* env,
+    jobject /* this */,
+    jfloatArray samples_arr,
+    jint n_fft,
+    jint hop_length,
+    jint dim_f,
+    jint dim_t) {
+    jsize len = env->GetArrayLength(samples_arr);
+    jfloat* data = env->GetFloatArrayElements(samples_arr, nullptr);
+
+    std::vector<float> planes = AudioDspEngine::computeMdxStft(
+        data,
+        static_cast<size_t>(len),
+        n_fft,
+        hop_length,
+        dim_f,
+        dim_t
+    );
+
+    env->ReleaseFloatArrayElements(samples_arr, data, JNI_ABORT);
+
+    jfloatArray result = env->NewFloatArray(static_cast<jsize>(planes.size()));
+    env->SetFloatArrayRegion(result, 0, static_cast<jsize>(planes.size()), planes.data());
+    return result;
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_com_smartvoicechanger_app_NativeBridge_computeMdxIstftNative(
+    JNIEnv* env,
+    jobject /* this */,
+    jfloatArray stft_planes_arr,
+    jint total_output_samples,
+    jint n_fft,
+    jint hop_length,
+    jint dim_f,
+    jint dim_t) {
+    jsize len = env->GetArrayLength(stft_planes_arr);
+    jfloat* data = env->GetFloatArrayElements(stft_planes_arr, nullptr);
+
+    std::vector<float> audio = AudioDspEngine::computeMdxIstft(
+        data,
+        static_cast<size_t>(total_output_samples),
+        n_fft,
+        hop_length,
+        dim_f,
+        dim_t
+    );
+
+    env->ReleaseFloatArrayElements(stft_planes_arr, data, JNI_ABORT);
+
+    jfloatArray result = env->NewFloatArray(static_cast<jsize>(audio.size()));
+    env->SetFloatArrayRegion(result, 0, static_cast<jsize>(audio.size()), audio.data());
+    return result;
+}
+
 }

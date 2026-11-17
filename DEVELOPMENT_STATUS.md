@@ -14,7 +14,8 @@
 | **M3: Self-Test Engine & Benchmarking** | Completed | `BackendSelfTester` checks initialization, numerical validation, and latency with vocoder test block (`diagnostic_benchmark.onnx`). |
 | **M4: Audio Studio Workflow** | Completed | Full interactive multi-stage UX: Audio picker, Vocal recording booth, and Link ingest leading to `AudioTuningScreen` (pitch shift & model preset). |
 | **M5: Universal Audio Decoding & Native DSP** | Completed | `AudioDecoderHelper` converts any input format (MP3, AAC, FLAC, M4A, WAV) to PCM WAV; C++20 `AudioDspEngine` performs pitch shifting and resampling. |
-| **M6: Active Backend Reporting** | Active | Multi-threaded ARM NEON CPU set as active production backend. Vulkan GPU compute graph integration in research/evaluation. |
+| **M6: Neural Stem Separation (Vocals / Inst)** | Completed | Integrated **UVR-MDX-Net** ONNX model with C++ KissFFT STFT/iSTFT engine. Supports on-demand verified SHA-256 downloading, independent vocal/instrumental extraction, preview playback, and direct vocal handoff to neural voice conversion. |
+| **M7: Active Backend Reporting** | Active | Multi-threaded ARM NEON CPU set as active production backend. Vulkan GPU compute graph integration in research/evaluation. |
 | **M7: Full Neural Vocoder / RVC Model Integration** | In Progress | Integrating verified onnx runtime voice model pipeline into conversion path. |
 
 ---

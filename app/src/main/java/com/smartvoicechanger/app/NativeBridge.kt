@@ -15,4 +15,22 @@ object NativeBridge {
     // Native DSP operations
     external fun pitchShiftNative(samples: FloatArray, sampleRate: Int, semitones: Float): FloatArray
     external fun resampleNative(samples: FloatArray, srcRate: Int, targetRate: Int): FloatArray
+
+    // Native STFT / iSTFT for MDX-Net
+    external fun computeMdxStftNative(
+        samples: FloatArray,
+        nFft: Int = 7680,
+        hopLength: Int = 1024,
+        dimF: Int = 3072,
+        dimT: Int = 256
+    ): FloatArray
+
+    external fun computeMdxIstftNative(
+        stftPlanes: FloatArray,
+        totalOutputSamples: Int,
+        nFft: Int = 7680,
+        hopLength: Int = 1024,
+        dimF: Int = 3072,
+        dimT: Int = 256
+    ): FloatArray
 }

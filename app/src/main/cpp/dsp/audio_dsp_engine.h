@@ -27,6 +27,27 @@ public:
 
     // Fast root-mean-square calculation for audio visualization
     static float calculateRms(const float* samples, size_t count);
+
+    // STFT Spectrogram calculation for UVR MDX-Net
+    // Slices input mono/stereo audio into [4, dim_f, dim_t] STFT planes (Real, Imag left, Real, Imag right)
+    static std::vector<float> computeMdxStft(
+        const float* audio_samples,
+        size_t total_samples,
+        int n_fft = 7680,
+        int hop_length = 1024,
+        int dim_f = 3072,
+        int dim_t = 256
+    );
+
+    // Inverse STFT to reconstruct audio from [4, dim_f, dim_t] MDX-Net output tensor
+    static std::vector<float> computeMdxIstft(
+        const float* stft_planes,
+        size_t total_output_samples,
+        int n_fft = 7680,
+        int hop_length = 1024,
+        int dim_f = 3072,
+        int dim_t = 256
+    );
 };
 
 } // namespace svc::dsp
