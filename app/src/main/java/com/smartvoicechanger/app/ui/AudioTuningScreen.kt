@@ -84,10 +84,10 @@ fun AudioTuningScreen(
 
     val presets = remember {
         listOf(
-            PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 12.0f, SvcColors.PurpleNeon),
-            PresetOption("nexus_mech_ai", "Nexus Mech AI", "Sci-Fi Robot", -6.0f, SvcColors.CyanNeon),
-            PresetOption("rei_ethereal", "Rei Ethereal", "Sweet Vocal", 10.0f, SvcColors.PinkNeon),
-            PresetOption("ronin_heavy_blade", "Ronin Bass", "Cinematic Male", -12.0f, Color(0xFFF59E0B))
+            PresetOption("pitch_feminine", "Feminine +12", "Pitch Shift", 12.0f, SvcColors.PurpleNeon),
+            PresetOption("pitch_lower", "Lower -6", "Pitch Shift", -6.0f, SvcColors.CyanNeon),
+            PresetOption("pitch_soft", "Higher +10", "Pitch Shift", 10.0f, SvcColors.PinkNeon),
+            PresetOption("pitch_masculine", "Masculine -12", "Pitch Shift", -12.0f, Color(0xFFF59E0B))
         )
     }
 
