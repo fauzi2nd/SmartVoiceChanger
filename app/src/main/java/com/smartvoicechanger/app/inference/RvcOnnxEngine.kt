@@ -76,6 +76,11 @@ class RvcOnnxEngine(
         require(hubertOutput in hubert.outputInfo) {
             "HuBERT model does not expose '$hubertOutput'. Available outputs: ${hubert.outputInfo.keys}."
         }
+        val hubertInputType = (hubert.inputInfo["audio"]?.info as? TensorInfo)?.type
+        val hubertOutputType = (hubert.outputInfo[hubertOutput]?.info as? TensorInfo)?.type
+        require(hubertInputType == OnnxJavaType.FLOAT && hubertOutputType == OnnxJavaType.FLOAT) {
+            "HuBERT ONNX must use FP32 audio input and feature output; found input=$hubertInputType, output=$hubertOutputType."
+        }
         onProgress(0.12f)
 
         val audio16k = if (inputSampleRate == 16000) inputSamples
