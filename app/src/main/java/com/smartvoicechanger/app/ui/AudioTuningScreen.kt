@@ -781,7 +781,8 @@ fun AudioTuningScreen(
             selectedStemMode == "VOCAL" && instStemFile != null -> "CONVERT VOCALS & REMIX WITH MUSIC"
             selectedStemMode == "VOCAL" -> "CONVERT VOCALS STEM"
             selectedStemMode == "INSTRUMENTAL" -> "PROCESS INSTRUMENTAL STEM"
-            !rvcModelsReady -> "IMPORT RVC MODELS FIRST"\n            else -> "CONVERT FULL SONG MIX"
+            !rvcModelsReady -> "IMPORT RVC MODELS FIRST"
+            else -> "CONVERT FULL SONG MIX"
         }
 
         val ctaGradient = if (isSeparateNeeded) {
