@@ -22,13 +22,8 @@ class BackendRegistry(private val capabilities: DeviceCapabilities) {
             backends[BackendType.NNAPI] = NnapiBackend()
         }
 
-        // 3. Vulkan Backend (if Vulkan compute queue is confirmed)
-        if (capabilities.vulkanCapabilities.isSupported && capabilities.vulkanCapabilities.hasComputeQueue) {
-            backends[BackendType.VULKAN] = VulkanBackend(
-                hasComputeQueue = capabilities.vulkanCapabilities.hasComputeQueue,
-                supportsFp16 = capabilities.vulkanCapabilities.supportsFp16
-            )
-        }
+        // Vulkan is intentionally not registered: hardware compute-queue detection
+        // does not mean an ONNX Vulkan execution provider is available.
     }
 
     fun getBackend(type: BackendType): InferenceBackend? = backends[type]
