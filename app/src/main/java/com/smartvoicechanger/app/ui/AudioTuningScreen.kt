@@ -1,5 +1,7 @@
 package com.smartvoicechanger.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +28,9 @@ import com.smartvoicechanger.app.audio.VoiceConversionPipeline
 import com.smartvoicechanger.app.audio.WavIoHelper
 import com.smartvoicechanger.app.ui.theme.SvcColors
 import com.smartvoicechanger.app.ui.theme.SvcFonts
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 data class PresetOption(
@@ -47,6 +51,37 @@ fun AudioTuningScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    var rvcModelStatus by remember { mutableStateOf(com.smartvoicechanger.app.model.RvcModelStore.status(context)) }
+    var isImportingRvcModel by remember { mutableStateOf(false) }
+    val rvcModelsReady = rvcModelStatus.values.all { it }
+
+    fun importRvcModel(uri: android.net.Uri?, modelName: String) {
+        if (uri == null || isImportingRvcModel) return
+        coroutineScope.launch {
+            isImportingRvcModel = true
+            try {
+                withContext(Dispatchers.IO) {
+                    com.smartvoicechanger.app.model.RvcModelStore.importModel(context, uri, modelName)
+                }
+                rvcModelStatus = com.smartvoicechanger.app.model.RvcModelStore.status(context)
+                android.widget.Toast.makeText(context, "$modelName imported successfully", android.widget.Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Model import failed: ${e.localizedMessage ?: "Unknown error"}", android.widget.Toast.LENGTH_LONG).show()
+            } finally {
+                isImportingRvcModel = false
+            }
+        }
+    }
+
+    val synthModelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        importRvcModel(uri, com.smartvoicechanger.app.model.RvcModelStore.SYNTH)
+    }
+    val hubertModelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        importRvcModel(uri, com.smartvoicechanger.app.model.RvcModelStore.HUBERT)
+    }
+    val rmvpeModelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        importRvcModel(uri, com.smartvoicechanger.app.model.RvcModelStore.RMVPE)
+    }
 
     val presets = remember {
         listOf(
@@ -309,10 +344,65 @@ fun AudioTuningScreen(
                 }
             }
 
+            // RVC model bundle: each slot must contain a compatible ONNX file.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0x330A1226))
+                    .border(1.dp, SvcColors.CyanNeon.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "RVC MODEL BUNDLE",
+                    color = SvcColors.CyanNeon,
+                    fontFamily = SvcFonts.Orbitron,
+                    fontSize = 11.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                Text(
+                    text = if (rvcModelsReady) "All three model files are installed. The synthesizer metadata will be checked before conversion."
+                    else "Import compatible ONNX files. The previous built-in presets are placeholders, not trained RVC voices.",
+                    color = SvcColors.TextMuted,
+                    fontFamily = SvcFonts.Rajdhani,
+                    fontSize = 11.sp
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { synthModelPicker.launch(arrayOf("*/*")) },
+                        enabled = !isImportingRvcModel,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
+                    ) {
+                        Text(if (rvcModelStatus[com.smartvoicechanger.app.model.RvcModelStore.SYNTH] == true) "SYNTH ✓" else "SYNTH +", fontSize = 9.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { hubertModelPicker.launch(arrayOf("*/*")) },
+                        enabled = !isImportingRvcModel,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
+                    ) {
+                        Text(if (rvcModelStatus[com.smartvoicechanger.app.model.RvcModelStore.HUBERT] == true) "HUBERT ✓" else "HUBERT +", fontSize = 9.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { rmvpeModelPicker.launch(arrayOf("*/*")) },
+                        enabled = !isImportingRvcModel,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
+                    ) {
+                        Text(if (rvcModelStatus[com.smartvoicechanger.app.model.RvcModelStore.RMVPE] == true) "RMVPE ✓" else "RMVPE +", fontSize = 9.sp)
+                    }
+                }
+                if (isImportingRvcModel) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = SvcColors.CyanNeon)
+                }
+            }
+
             // 2. Target Voice Models Section
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "TARGET VOICE MODEL",
+                    text = "PITCH PRESET",
                     color = SvcColors.PurpleNeon,
                     fontFamily = SvcFonts.Orbitron,
                     fontSize = 11.sp,
@@ -815,6 +905,7 @@ fun AudioTuningScreen(
                     shouldSeparate
                 )
             },
+            enabled = !isSeparating,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)

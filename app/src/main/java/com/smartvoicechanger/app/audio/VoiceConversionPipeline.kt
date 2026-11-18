@@ -4,24 +4,18 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
 import com.smartvoicechanger.app.NativeBridge
+import com.smartvoicechanger.app.inference.RvcOnnxEngine
+import com.smartvoicechanger.app.model.RvcModelStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
-import java.nio.FloatBuffer
 import java.util.concurrent.atomic.AtomicBoolean
 
 class VoiceConversionPipeline(private val context: Context) {
 
     private var activeTrack: AudioTrack? = null
     private val isPlaying = AtomicBoolean(false)
-    private var ortEnv: OrtEnvironment? = null
-    private var cachedSession: OrtSession? = null
-    private var cachedModelId: String? = null
 
     suspend fun convertAudio(
         inputFile: File,
@@ -32,37 +26,29 @@ class VoiceConversionPipeline(private val context: Context) {
         onProgress: (Float) -> Unit
     ): AudioData = withContext(Dispatchers.Default) {
         onProgress(0.05f)
+        val inputAudio = inputFile.inputStream().use { WavIoHelper.readWav(it) }
 
-        // 1. Read input WAV
-        val inputAudio = inputFile.inputStream().use {
-            WavIoHelper.readWav(it)
+        // RVC requires three compatible ONNX models; never feed raw waveform
+        // directly into the synthesizer or treat demo placeholder assets as models.
+        val engine = RvcOnnxEngine(
+            synthFile = RvcModelStore.file(context, RvcModelStore.SYNTH),
+            hubertFile = RvcModelStore.file(context, RvcModelStore.HUBERT),
+            rmvpeFile = RvcModelStore.file(context, RvcModelStore.RMVPE),
+        )
+        val converted = engine.use { runtime ->
+            runtime.convert(
+                inputSamples = inputAudio.samples,
+                inputSampleRate = inputAudio.sampleRate,
+                pitchSemitones = pitchSemitones.toInt(),
+            ) { progress ->
+                onProgress(0.10f + progress * 0.70f)
+            }
         }
-        onProgress(0.15f)
+        val neuralSamples = converted.samples
+        val targetRate = converted.sampleRate
+        onProgress(0.82f)
 
-        // 2. Pitch shifting via high-performance native C++ DSP
-        val shiftedSamples = if (kotlin.math.abs(pitchSemitones) > 0.01f) {
-            NativeBridge.pitchShiftNative(inputAudio.samples, inputAudio.sampleRate, pitchSemitones)
-        } else {
-            inputAudio.samples
-        }
-        onProgress(0.35f)
-
-        // 3. Resample to standard target (44.1 kHz)
-        val targetRate = 44100
-        val resampledSamples = if (inputAudio.sampleRate != targetRate) {
-            NativeBridge.resampleNative(shiftedSamples, inputAudio.sampleRate, targetRate)
-        } else {
-            shiftedSamples
-        }
-        onProgress(0.50f)
-
-        // 4. Neural Model Inference via ONNX Runtime Mobile (ARM NEON)
-        val neuralSamples = runNeuralInference(resampledSamples, modelId) { p ->
-            onProgress(0.50f + p * 0.30f)
-        }
-        onProgress(0.80f)
-
-        // 5. Audio Remixer Stage: If instrumental stem is provided, combine converted vocals with instrumental
+        // 5. Audio Remixer Stage: align the instrumental stem to the synthesizer output rate.
         val finalSamples = if (instrumentalFile != null && instrumentalFile.exists()) {
             val instAudio = instrumentalFile.inputStream().use { WavIoHelper.readWav(it) }
             val instResampled = if (instAudio.sampleRate != targetRate) {
@@ -84,110 +70,6 @@ class VoiceConversionPipeline(private val context: Context) {
         onProgress(1.0f)
 
         outputAudio
-    }
-
-    private suspend fun runNeuralInference(
-        samples: FloatArray,
-        modelId: String,
-        onProgress: (Float) -> Unit
-    ): FloatArray = withContext(Dispatchers.Default) {
-        try {
-            // Load model from storage/assets if needed
-            val modelFile = getOrExtractModel(modelId)
-            if (modelFile == null || !modelFile.exists()) {
-                // If model not found, report smooth progress and return DSP samples cleanly
-                onProgress(1.0f)
-                return@withContext samples
-            }
-
-            val env = ortEnv ?: OrtEnvironment.getEnvironment().also { ortEnv = it }
-            val session = if (cachedModelId == modelId && cachedSession != null) {
-                cachedSession!!
-            } else {
-                cachedSession?.close()
-                val opts = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(4)
-                    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                }
-                val newSession = env.createSession(modelFile.absolutePath, opts)
-                cachedSession = newSession
-                cachedModelId = modelId
-                newSession
-            }
-
-            // Check if model expects 1D/3D raw audio [batch, 1, samples]
-            val inputNames = session.inputNames.toList()
-            if (inputNames.isEmpty() || inputNames.size > 1 || inputNames[0] == "phone") {
-                // Multi-input model (e.g. complex RVC HuBERT feature graph) not yet converted to end-to-end audio graph
-                // Safely bypass neural vocoder pass and preserve DSP samples
-                onProgress(1.0f)
-                return@withContext samples
-            }
-
-            // Run neural model inference in dynamic chunks to bound memory and provide smooth progress
-            val chunkSize = 44100 // 1-second chunks
-            val totalSamples = samples.size
-            val outputSamples = FloatArray(totalSamples)
-            var offset = 0
-
-            val inputName = inputNames[0]
-
-            while (offset < totalSamples) {
-                val currentChunkSize = minOf(chunkSize, totalSamples - offset)
-                val chunkBuffer = FloatBuffer.wrap(samples, offset, currentChunkSize)
-                val inputShape = longArrayOf(1, 1, currentChunkSize.toLong())
-
-                val tensor = OnnxTensor.createTensor(env, chunkBuffer, inputShape)
-                val results = session.run(mapOf(inputName to tensor))
-
-                val outTensor = results.get(0) as OnnxTensor
-                val outBuffer = outTensor.floatBuffer
-                outBuffer.get(outputSamples, offset, currentChunkSize)
-
-                results.close()
-                tensor.close()
-
-                offset += currentChunkSize
-                onProgress(offset.toFloat() / totalSamples.toFloat())
-            }
-
-            outputSamples
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // Robust fallback to clean DSP audio if ONNX session throws
-            onProgress(1.0f)
-            samples
-        }
-    }
-
-    private fun getOrExtractModel(modelId: String): File? {
-        // 1. Check if model exists in models/voice (e.g. saisho_utane.onnx)
-        val voiceDir = File(context.filesDir, "models/voice")
-        val voiceModelFile = File(voiceDir, "$modelId.onnx")
-        if (voiceModelFile.exists() && voiceModelFile.length() > 0) {
-            return voiceModelFile
-        }
-
-        // 2. Check if model exists in general models/ directory
-        val modelsDir = File(context.filesDir, "models")
-        if (!modelsDir.exists()) modelsDir.mkdirs()
-        val targetFile = File(modelsDir, "$modelId.onnx")
-
-        if (targetFile.exists() && targetFile.length() > 0) {
-            return targetFile
-        }
-
-        // 3. Fallback to extracting from bundled assets if present
-        return try {
-            context.assets.open("models/$modelId.onnx").use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-            targetFile
-        } catch (_: Exception) {
-            null
-        }
     }
 
     fun playAudio(audio: AudioData) {
