@@ -26,6 +26,7 @@ class VoiceConversionPipeline(private val context: Context) {
         onProgress: (Float) -> Unit
     ): AudioData = withContext(Dispatchers.Default) {
         onProgress(0.05f)
+        val inputAudio = inputFile.inputStream().use { WavIoHelper.readWav(it) }
 
         // RVC requires three compatible ONNX models; never feed raw waveform
         // directly into the synthesizer or treat demo placeholder assets as models.
