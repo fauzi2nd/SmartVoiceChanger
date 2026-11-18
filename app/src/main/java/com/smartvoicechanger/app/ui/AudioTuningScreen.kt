@@ -60,7 +60,7 @@ fun AudioTuningScreen(
             isImportingRvcModel = true
             try {
                 withContext(Dispatchers.IO) {
-                    com.smartvoicechanger.app.model.RvcModelStore.import(context, uri, modelName)
+                    com.smartvoicechanger.app.model.RvcModelStore.importModel(context, uri, modelName)
                 }
                 rvcModelStatus = com.smartvoicechanger.app.model.RvcModelStore.status(context)
                 android.widget.Toast.makeText(context, "$modelName imported successfully", android.widget.Toast.LENGTH_SHORT).show()
@@ -781,7 +781,7 @@ fun AudioTuningScreen(
             selectedStemMode == "VOCAL" && instStemFile != null -> "CONVERT VOCALS & REMIX WITH MUSIC"
             selectedStemMode == "VOCAL" -> "CONVERT VOCALS STEM"
             selectedStemMode == "INSTRUMENTAL" -> "PROCESS INSTRUMENTAL STEM"
-            else -> "CONVERT FULL SONG MIX"
+            !rvcModelsReady -> "IMPORT RVC MODELS FIRST"\n            else -> "CONVERT FULL SONG MIX"
         }
 
         val ctaGradient = if (isSeparateNeeded) {
