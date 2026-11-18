@@ -52,6 +52,9 @@ class RvcOnnxEngine(
     ): ConversionResult {
         require(inputSamples.isNotEmpty()) { "Input audio is empty" }
         require(inputSampleRate > 0) { "Invalid input sample rate: $inputSampleRate" }
+        require(inputSamples.size.toDouble() / inputSampleRate <= 60.0) {
+            "This mobile inference build currently supports up to 60 seconds per conversion. Split longer audio into shorter clips to avoid HuBERT memory exhaustion."
+        }
         require(synthFile.isFile && synthFile.length() > 0L) { "RVC synthesizer model is missing" }
         require(hubertFile.isFile && hubertFile.length() > 0L) { "HuBERT/ContentVec ONNX model is missing" }
 
