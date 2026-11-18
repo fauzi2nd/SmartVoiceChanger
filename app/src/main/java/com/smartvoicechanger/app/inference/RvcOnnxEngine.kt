@@ -1,5 +1,6 @@
 package com.smartvoicechanger.app.inference
 
+import ai.onnxruntime.OnnxJavaType
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
@@ -62,6 +63,9 @@ class RvcOnnxEngine(
         val synth = openSession(synthFile).also { synthSession = it }
         val metadata = readMetadata(synth)
         validateSynthInputs(synth, metadata)
+        require(metadata.f0 || pitchSemitones == 0) {
+            "Pitch shifting requires an F0-enabled RVC synthesizer. Set pitch to 0 or import an F0 model."
+        }
         onProgress(0.08f)
 
         val hubert = openSession(hubertFile).also { hubertSession = it }
@@ -244,6 +248,14 @@ class RvcOnnxEngine(
         }
         require("audio" in session.outputInfo) {
             "Synthesizer ONNX must expose an 'audio' output; found ${session.outputInfo.keys}."
+        }
+        val featureType = (session.inputInfo["feats"]?.info as? TensorInfo)?.type
+        require(featureType == OnnxJavaType.FLOAT) {
+            "Synthesizer feats input must be FP32 in this build; found $featureType. FP16 synthesizers are not supported yet."
+        }
+        val audioType = (session.outputInfo["audio"]?.info as? TensorInfo)?.type
+        require(audioType == OnnxJavaType.FLOAT) {
+            "Synthesizer audio output must be FP32 in this build; found $audioType. FP16 outputs are not supported yet."
         }
     }
 
