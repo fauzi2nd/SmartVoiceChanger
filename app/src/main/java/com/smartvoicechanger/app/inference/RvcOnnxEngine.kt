@@ -197,7 +197,7 @@ class RvcOnnxEngine(
     ): FloatArray {
         val inputs = LinkedHashMap<String, OnnxTensor>()
         try {
-            inputs["feats"] = floatTensor(features, longArrayOf(1L, frames.toLong(), metadata.embeddingChannels))
+            inputs["feats"] = floatTensor(features, longArrayOf(1L, frames.toLong(), metadata.embeddingChannels.toLong()))
             inputs["p_len"] = longTensor(longArrayOf(frames.toLong()), longArrayOf(1L))
             inputs["sid"] = longTensor(longArrayOf(0L), longArrayOf(1L))
             if (metadata.f0) {
