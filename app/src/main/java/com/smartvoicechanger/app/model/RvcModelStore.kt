@@ -29,7 +29,7 @@ object RvcModelStore {
             file(context, name).let { it.isFile && it.length() > 0L }
         }
 
-    fun import(context: Context, uri: Uri, modelName: String): File {
+    fun importModel(context: Context, uri: Uri, modelName: String): File {
         require(modelName in listOf(SYNTH, HUBERT, RMVPE)) { "Unknown RVC model slot: $modelName" }
         val target = file(context, modelName)
         val temporary = File(target.parentFile, "$modelName.importing")
