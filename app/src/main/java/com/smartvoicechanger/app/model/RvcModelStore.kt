@@ -38,6 +38,18 @@ object RvcModelStore {
                 FileOutputStream(temporary).use { output -> input.copyTo(output) }
             } ?: error("Cannot open selected model file")
             require(temporary.length() > 0L) { "Selected model file is empty" }
+
+            // Validate that imported file is not audio (e.g. WAV/MP3) and has valid ONNX header
+            val headerBytes = ByteArray(16)
+            temporary.inputStream().use { it.read(headerBytes) }
+            val headerString = String(headerBytes, Charsets.US_ASCII)
+            if (headerString.startsWith("RIFF") || headerString.startsWith("ID3") || headerString.startsWith("OggS")) {
+                error("File is an audio file, not an ONNX model file (.onnx).")
+            }
+            if (headerBytes.isNotEmpty() && headerBytes[0] != 0x08.toByte()) {
+                error("Invalid ONNX model file. Protobuf header mismatch.")
+            }
+
             if (target.exists() && !target.delete()) error("Cannot replace existing model file")
             if (!temporary.renameTo(target)) error("Cannot finalize imported model file")
             return target
