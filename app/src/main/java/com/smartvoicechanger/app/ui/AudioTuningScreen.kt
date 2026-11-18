@@ -50,17 +50,17 @@ fun AudioTuningScreen(
 
     val presets = remember {
         listOf(
-            PresetOption("saisho_utane", "Saisho Utane", "RVC v2 HD", 0.0f, SvcColors.CyanNeon),
-            PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 0.0f, SvcColors.PurpleNeon),
+            PresetOption("saisho_utane", "Saisho Utane", "RVC v2 Anime", 12.0f, SvcColors.CyanNeon),
+            PresetOption("aoi_cyber_girl", "Aoi Cyber Girl", "Anime Heroine", 12.0f, SvcColors.PurpleNeon),
+            PresetOption("rei_ethereal", "Rei Ethereal", "Sweet Vocal", 8.0f, SvcColors.PinkNeon),
             PresetOption("nexus_mech_ai", "Nexus Mech AI", "Sci-Fi Robot", -6.0f, Color(0xFF38BDF8)),
-            PresetOption("rei_ethereal", "Rei Ethereal", "Sweet Vocal", 0.0f, SvcColors.PinkNeon),
             PresetOption("ronin_heavy_blade", "Ronin Bass", "Cinematic Male", -12.0f, Color(0xFFF59E0B))
         )
     }
 
     var selectedPresetId by rememberSaveable { mutableStateOf("saisho_utane") }
     val selectedPreset = presets.find { it.id == selectedPresetId } ?: presets[0]
-    var pitchSemitones by rememberSaveable { mutableFloatStateOf(0.0f) }
+    var pitchSemitones by rememberSaveable { mutableFloatStateOf(12.0f) }
     var isPlayingSource by remember { mutableStateOf(false) }
 
     // Audio Mode: "VOCALS" (default) or "AUDIO" (Full Mix)

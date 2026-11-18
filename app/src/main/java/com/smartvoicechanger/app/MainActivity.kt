@@ -168,7 +168,7 @@ fun MainAppHost(
     fun processConversion(
         inputFile: File,
         targetName: String,
-        pitchSemitones: Float = 0.0f,
+        pitchSemitones: Float = 12.0f,
         modelName: String = "Saisho Utane",
         modelId: String = "saisho_utane",
         instrumentalFile: File? = null,
@@ -509,6 +509,13 @@ fun MainAppHost(
                     currentModelName = when (val s = serviceJobState) {
                         is AudioJobState.Running -> s.modelName
                         else -> activeJobModelName
+                    },
+                    stageLabel = when (val s = serviceJobState) {
+                        is AudioJobState.Running -> s.stage
+                        else -> null
+                    },
+                    onCancelJob = {
+                        AudioProcessingService.cancelCurrentJob(context)
                     },
                     historyItems = historyItems,
                     isRecording = isRecording,

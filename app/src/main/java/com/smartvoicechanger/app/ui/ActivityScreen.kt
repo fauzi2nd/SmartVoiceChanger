@@ -43,6 +43,8 @@ fun ActivityScreen(
     progress: Float,
     currentFileName: String?,
     currentModelName: String?,
+    stageLabel: String? = null,
+    onCancelJob: (() -> Unit)? = null,
     historyItems: List<ConversionHistoryItem>,
     isRecording: Boolean = false,
     recordingDurationSeconds: Int = 0,
@@ -202,7 +204,10 @@ fun ActivityScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(40.dp)
@@ -214,24 +219,32 @@ fun ActivityScreen(
                                 FuturisticActivityIcon(selected = true, size = 22.dp)
                             }
                             Spacer(modifier = Modifier.width(12.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = currentFileName ?: "audio_input.wav",
                                     color = SvcColors.TextPrimary,
                                     fontFamily = SvcFonts.Orbitron,
-                                    fontSize = 12.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    fontSize = 11.5.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Target Voice: ${currentModelName ?: "Aoi Cyber Girl"}",
+                                    text = stageLabel ?: "Target Voice: ${currentModelName ?: "Saisho Utane"}",
                                     color = SvcColors.CyanSoft,
                                     fontFamily = SvcFonts.Rajdhani,
-                                    fontSize = 12.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                    fontSize = 11.5.sp,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                             }
                         }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Percentage text with dedicated fixed min width to avoid wrapping
                         Text(
                             text = "${(progress * 100).toInt()}%",
                             color = SvcColors.CyanNeon,
@@ -260,6 +273,33 @@ fun ActivityScreen(
                                     )
                                 )
                         )
+                    }
+
+                    // Bottom info & cancel button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Model: ${currentModelName ?: "Saisho Utane"}",
+                            color = SvcColors.TextMuted,
+                            fontFamily = SvcFonts.Rajdhani,
+                            fontSize = 11.sp
+                        )
+
+                        if (onCancelJob != null) {
+                            Text(
+                                text = "CANCEL",
+                                color = SvcColors.PinkNeon,
+                                fontFamily = SvcFonts.Orbitron,
+                                fontSize = 10.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                modifier = Modifier
+                                    .clickable { onCancelJob() }
+                                    .padding(vertical = 2.dp, horizontal = 4.dp)
+                            )
+                        }
                     }
                 }
             } else {

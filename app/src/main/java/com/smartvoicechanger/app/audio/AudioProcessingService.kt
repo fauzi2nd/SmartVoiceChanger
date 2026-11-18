@@ -211,11 +211,12 @@ class AudioProcessingService : Service() {
 
                 // STAGE 2: Neural Voice Conversion & Pitch Shifting
                 val conversionBaseProgress = if (shouldSeparateStems) 0.40f else 0.05f
-                val conversionProgressScale = if (shouldSeparateStems) 0.50f else 0.85f
+                val conversionProgressScale = if (shouldSeparateStems) 0.55f else 0.90f
+                val stagePrefix = if (shouldSeparateStems) "🎙️ Converting isolated vocals" else "🎙️ Processing audio mix"
 
                 _jobState.value = AudioJobState.Running(
                     jobId = jobId,
-                    stage = "🎙️ Converting vocals to $modelName...",
+                    stage = "$stagePrefix with $modelName...",
                     progress = conversionBaseProgress,
                     fileName = targetName,
                     modelName = modelName
@@ -230,20 +231,21 @@ class AudioProcessingService : Service() {
                     instrumentalFile = actualInstForRemix
                 ) { p ->
                     val overallProgress = conversionBaseProgress + (p * conversionProgressScale)
-                    val stageLabel = if (p >= 0.85f && actualInstForRemix != null) {
-                        "🎛️ Remixing vocals with original instrumental..."
-                    } else {
-                        "🎙️ Neural voice synthesis (${(p * 100).toInt()}%)..."
+                    val stageLabel = when {
+                        p >= 0.88f && actualInstForRemix != null -> "🎛️ Remixing converted vocals with original instrumental..."
+                        p >= 0.88f -> "💾 Saving final converted audio..."
+                        p >= 0.45f -> "🧠 Neural voice transformation (${(p * 100).toInt()}%)..."
+                        else -> "⚡ High-performance DSP pitch & format shifting (${(p * 100).toInt()}%)..."
                     }
 
                     _jobState.value = AudioJobState.Running(
                         jobId = jobId,
                         stage = stageLabel,
-                        progress = overallProgress,
+                        progress = overallProgress.coerceIn(0.01f, 0.99f),
                         fileName = targetName,
                         modelName = modelName
                     )
-                    updateNotification(targetName, overallProgress)
+                    updateNotification(targetName, overallProgress.coerceIn(0.01f, 0.99f))
                 }
 
                 val elapsedMs = (System.currentTimeMillis() - startTime).toDouble()
