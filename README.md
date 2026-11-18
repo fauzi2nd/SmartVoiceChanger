@@ -6,16 +6,27 @@ The primary engineering goal of this project is to maximize actual on-device har
 
 ---
 
-## Current Milestone: Milestone 5 — Audio Studio Workflow & Universal Audio Pipeline
+## Current Milestone: Milestone 7 — RVC ONNX Integration (model import and runtime validation)
 
 The project implements a modern mobile neural voice conversion studio with:
 - **Audio Decoding Engine**: Hardware-accelerated `MediaExtractor` + `MediaCodec` decoding MP3, AAC, M4A, FLAC, OGG, and WAV into standard 44.1 kHz 16-bit Mono PCM WAV.
 - **Studio Preset Tuning**: Interactive pitch tuning (-12 to +12 semitones) and target voice model preset selection with live preview.
 - **Microphone Vocal Booth**: Real-time microphone capture with live visualizer, recording review, and tuning handoff.
 - **Native C++20 Audio DSP**: SIMD-accelerated pitch shifting and sinc/linear resampling on ARM NEON.
-- **Hardware Honesty**: Active execution backend is reported as **ARM NEON CPU** (multi-threaded Kryo 660). Vulkan GPU is kept as an experimental compute backend until model execution is fully ported. Zero fake benchmark numbers or simulated history.
+- **RVC Inference**: HuBERT/ContentVec feature extraction, optional RMVPE F0 extraction, feature alignment, and RVC synthesizer ONNX execution on CPU.
+- **Hardware Honesty**: Active execution backend is reported as **ARM NEON CPU**. Vulkan hardware probing is not treated as model execution; Vulkan remains unavailable until a real ONNX graph provider is implemented. Zero fake benchmark numbers or simulated history.
 
 ---
+
+## RVC model setup
+
+The app does not ship trained voice models. Import three compatible ONNX files from the Audio Tuning screen:
+
+1. **Synthesizer**: RVC ONNX exported with embedded `metadata` JSON (`samplingRate`, `f0`, `embChannels`, `embedder`, `embOutputLayer`, `useFinalProj`) and `audio` output.
+2. **HuBERT / ContentVec**: ONNX with `audio` input and the `unit12`, `units9`, and/or `unit12s` outputs expected by the synthesizer metadata.
+3. **RMVPE**: Required for F0-enabled synthesizers; ONNX inputs must be `waveform` and `threshold`.
+
+The imported files are copied to app-private storage under `files/models/rvc/`. The app validates the synthesizer metadata, tensor signatures, and feature dimensions before saving converted audio. The four legacy preset assets are placeholders and are no longer used for neural inference.
 
 ## Hardware Discovery & Inference Backends
 - **Device & SoC Diagnostics**: Real-time inspection of device manufacturer, model, Snapdragon SoC (`SM6375`), board, Android version, and build fingerprint.
