@@ -31,7 +31,7 @@ class BackendRegistry(private val capabilities: DeviceCapabilities) {
     fun getAllBackends(): List<InferenceBackend> = backends.values.toList()
 
     fun getPrioritizedBackends(): List<InferenceBackend> {
-        // Priority order: Vulkan (when fully ready) -> NNAPI -> CPU (always guaranteed fallback)
+        // Priority order: NNAPI (when it passes runtime validation) -> CPU (guaranteed fallback)
         val list = mutableListOf<InferenceBackend>()
         backends[BackendType.VULKAN]?.let { list.add(it) }
         backends[BackendType.NNAPI]?.let { list.add(it) }
